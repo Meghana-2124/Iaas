@@ -1,0 +1,17 @@
+apiVersion: v2
+name: chimoney-rafiki
+description: A Helm chart for deploying Chimoney Rafiki application suite
+type: application
+version: 0.1.0
+appVersion: "1.0.0" # Corresponds to the application version being deployed
+
+# Maintainers (optional)
+maintainers:
+  - name: Regedit-msc
+    email: your.email@example.com
+# Dependencies (if any, e.g., a Redis chart)
+# dependencies:
+#   - name: redis
+#     version: "17.x.x"
+#     repository: "https://charts.bitnami.com/bitnami"
+#     condition: redis.enabled # If deploying Redis as a sub-chart

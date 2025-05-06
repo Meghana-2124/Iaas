@@ -1,0 +1,59 @@
+{{- if .Values.nginx.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "chimoney-rafiki.componentFullname" (dict "componentName" .Values.nginx.configMap.name "context" .) }}
+  labels:
+    {{- include "chimoney-rafiki.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.nginx.name }}
+data:
+  default.conf: |
+    server {
+      root /srv/www/static;
+      
+      set_real_ip_from 0.0.0.0/0; # Allow all IPs to be set as real IP
+      real_ip_header X-Forwarded-For;
+      real_ip_recursive on;
+      
+      server_name {{ .Values.nginx.config.serverNameIlp }}; 
+
+      location /graphql {
+      {{- range .Values.nginx.config.graphqlAllowedIps }}
+       allow {{ . }};
+      {{- end }}
+       deny all; 
+       proxy_pass http://{{ include "chimoney-rafiki.componentFullname" (dict "componentName" $.Values.rafikiBackend.name "context" $) }}:{{ $.Values.rafikiBackend.service.ports.graphql }};
+      }
+        
+      location /connector {
+       rewrite ^/connector/(.*)$ /$1 break;
+       proxy_pass http://{{ include "chimoney-rafiki.componentFullname" (dict "componentName" $.Values.rafikiBackend.name "context" $) }}:{{ $.Values.rafikiBackend.service.ports.connector }};
+      }
+
+      location / {
+        proxy_pass_request_headers on;
+        proxy_set_header X-Forwarded-Proto $scheme; 
+        proxy_set_header Host $server_name;
+        proxy_pass http://{{ include "chimoney-rafiki.componentFullname" (dict "componentName" $.Values.rafikiBackend.name "context" $) }}:{{ $.Values.rafikiBackend.service.ports.openPayments }};
+      }
+    }
+
+    server { 
+        root /srv/www/static;
+        server_name {{ .Values.nginx.config.serverNameAuth }}; 
+
+        location /grant { 
+            proxy_pass_request_headers on;
+            proxy_set_header X-Forwarded-Proto https; 
+            proxy_set_header Host $server_name;
+            proxy_pass http://{{ include "chimoney-rafiki.componentFullname" (dict "componentName" $.Values.rafikiAuth.name "context" $) }}:{{ $.Values.rafikiAuth.service.ports.grant }};
+        }
+
+        location / { 
+            proxy_pass_request_headers on;
+            proxy_set_header X-Forwarded-Proto https; 
+            proxy_set_header Host $server_name;
+            proxy_pass http://{{ include "chimoney-rafiki.componentFullname" (dict "componentName" $.Values.rafikiAuth.name "context" $) }}:{{ $.Values.rafikiAuth.service.ports.main }};
+        }
+    }
+{{- end }}

@@ -1,0 +1,23 @@
+{{- if .Values.nginx.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "chimoney-rafiki.componentFullname" (dict "componentName" .Values.nginx.name "context" .) }}
+  labels:
+    {{- include "chimoney-rafiki.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.nginx.name }}
+  {{- with .Values.nginx.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.nginx.service.type }}
+  ports:
+    - port: {{ .Values.nginx.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "chimoney-rafiki.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.nginx.name }}
+{{- end }}

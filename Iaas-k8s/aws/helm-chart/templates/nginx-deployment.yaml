@@ -1,0 +1,43 @@
+{{- if .Values.nginx.enabled }}
+apiVersion: {{ include "deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  name: {{ include "chimoney-rafiki.componentFullname" (dict "componentName" .Values.nginx.name "context" .) }}
+  labels:
+    {{- include "chimoney-rafiki.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.nginx.name }}
+spec:
+  replicas: {{ .Values.nginx.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "chimoney-rafiki.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: {{ .Values.nginx.name }}
+  template:
+    metadata:
+      labels:
+        {{- include "chimoney-rafiki.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: {{ .Values.nginx.name }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Values.nginx.name }}
+          image: "{{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag }}"
+          imagePullPolicy: {{ .Values.nginx.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.nginx.ports.http }}
+              protocol: TCP
+          volumeMounts:
+            - name: nginx-config-volume
+              mountPath: /etc/nginx/conf.d
+          resources:
+            {{- toYaml .Values.nginx.resources | nindent 12 }}
+      volumes:
+        - name: nginx-config-volume
+          configMap:
+            name: {{ include "chimoney-rafiki.componentFullname" (dict "componentName" .Values.nginx.configMap.name "context" .) }}
+      restartPolicy: Always
+{{- end }}

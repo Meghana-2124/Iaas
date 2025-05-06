@@ -1,0 +1,58 @@
+{{- if .Values.rafikiAuth.enabled }}
+apiVersion: {{ include "deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  name: {{ include "chimoney-rafiki.componentFullname" (dict "componentName" .Values.rafikiAuth.name "context" .) }}
+  labels:
+    {{- include "chimoney-rafiki.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.rafikiAuth.name }}
+spec:
+  replicas: {{ .Values.rafikiAuth.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "chimoney-rafiki.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: {{ .Values.rafikiAuth.name }}
+  template:
+    metadata:
+      labels:
+        {{- include "chimoney-rafiki.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: {{ .Values.rafikiAuth.name }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Values.rafikiAuth.name }}
+          image: "{{ .Values.rafikiAuth.image.repository }}:{{ .Values.rafikiAuth.image.tag }}"
+          imagePullPolicy: {{ .Values.rafikiAuth.image.pullPolicy }}
+          ports:
+            - name: http-main
+              containerPort: {{ .Values.rafikiAuth.ports.main }}
+              protocol: TCP
+            - name: http-grant
+              containerPort: {{ .Values.rafikiAuth.ports.grant }}
+              protocol: TCP
+            - name: http-admin
+              containerPort: {{ .Values.rafikiAuth.ports.admin }}
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: {{ .Values.rafikiAuth.secrets.name }}
+          # env:
+          #   {{- range $key, $value := .Values.rafikiAuth.env }}
+          #   - name: {{ $key }}
+          #     value: {{ $value | quote }}
+          #   {{- end }}
+          # livenessProbe:
+          #   httpGet:
+          #     path: /healthz # Adjust path as needed
+          #     port: http-main
+          # readinessProbe:
+          #   httpGet:
+          #     path: /readyz # Adjust path as needed
+          #     port: http-main
+          resources:
+            {{- toYaml .Values.rafikiAuth.resources | nindent 12 }}
+      restartPolicy: Always
+{{- end }}

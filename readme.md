@@ -1,1 +1,1 @@
-# IAAS (Interledger As A Service)
+# IAAS (Interledger As A)

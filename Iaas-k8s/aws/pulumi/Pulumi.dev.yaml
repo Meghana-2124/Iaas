@@ -1,0 +1,2 @@
+config:
+  aws:region: us-east-1 # Default region, can be changed as needed
