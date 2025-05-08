@@ -1,3 +1,0 @@
-# Ignore kubernetes secret files
-**/secrets.dev.yaml
-**/secrets.prod.yaml

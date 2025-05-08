@@ -1,5 +1,5 @@
 {
-  "name": "Iaas",
+  "name": "iaas",
   "version": "1.0.0",
   "type": "module",
   "description": "Interledger As A service",
@@ -17,5 +17,9 @@
   "devDependencies": {
     "@types/node": "^22.15.12",
     "typescript": "^5.8.3"
+  },
+  "scripts": {
+    "build": "tsc",
+    "pulumi": "node dist/automation.js"
   }
 }

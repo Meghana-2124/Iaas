@@ -59,9 +59,9 @@ Or, you can set it when running Pulumi commands:
 AWS_PROFILE=your-profile-name pulumi up
 ```
 
-## 2. Deploying the Project using Pulumi
+## 2. Deploying the Project using Pulumi Automation API
 
-This project uses Pulumi to define and deploy AWS infrastructure, including an EKS cluster and associated Kubernetes resources via a Helm chart.
+This project uses Pulumi with the Automation API to define and deploy AWS infrastructure, including an EKS cluster and associated Kubernetes resources via a Helm chart. The Automation API script (`automation.ts`) handles stack operations.
 
 ### Step 1: Install Project Dependencies
 
@@ -75,9 +75,23 @@ Install the Node.js dependencies:
 
 ```bash
 npm install
+# or
+# yarn install
 ```
 
-### Step 2: Login to Pulumi
+### Step 2: Build the TypeScript Code
+
+Compile the TypeScript files (including `index.ts`, `aws-infra.ts`, and `automation.ts`) to JavaScript:
+
+```bash
+npm run build
+# or
+# yarn build
+```
+
+This will create a `dist` directory with the compiled JavaScript files.
+
+### Step 3: Login to Pulumi
 
 If you haven't already, log in to the Pulumi service. This is where your stack's state will be stored. You can use the default Pulumi SaaS backend or configure an alternative [backend](https://www.pulumi.com/docs/concepts/state/).
 
@@ -85,25 +99,20 @@ If you haven't already, log in to the Pulumi service. This is where your stack's
 pulumi login
 ```
 
-### Step 3: Create or Select a Pulumi Stack
+_Note: While the Automation API script handles deployments, `pulumi login` and `pulumi stack init/select` (for the very first time) are still typically done via the Pulumi CLI._
+
+### Step 4: Create or Select a Pulumi Stack (Initial Setup)
 
 A Pulumi stack is an isolated instance of your Pulumi program. Common practice is to have stacks for different environments (e.g., `dev`, `staging`, `prod`).
 
-To create a new stack (e.g., `dev`):
+If you are setting up a stack for the first time with the Automation API, you might still need the CLI to initialize it or ensure it's selected if the Automation API script doesn't explicitly handle `pulumi stack init` in a way that creates the `Pulumi.<stack-name>.yaml` configuration file. However, the provided `automation.ts` script uses `LocalWorkspace.createOrSelectStack`, which should handle this.
 
-```bash
-pulumi stack init dev
-```
-
-If the stack already exists, select it:
-
-```bash
-pulumi stack select <stack-name> # e.g., pulumi stack select dev
-```
+To create a new stack (e.g., `dev`) if it doesn't exist, or select it if it does:
+The `automation.ts` script will handle this. For example, when you run `npm run pulumi up dev`, it will use or create the `dev` stack.
 
 The current Pulumi code is designed to use different configurations based on the stack name (`dev` or `prod`). For example, it uses `t3.medium` instances for `dev` and `m5.large` for `prod`.
 
-### Step 4: Configure Stack-Specific Values (if necessary)
+### Step 5: Configure Stack-Specific Values (if necessary)
 
 This project loads Helm values from `values.yaml` and merges them with environment-specific files like `values.dev.yaml` or `values.prod.yaml`. Additionally, for production, it attempts to load `secrets.prod.yaml`.
 
@@ -114,94 +123,111 @@ Ensure these files are correctly configured for your deployment:
 - `../helm-chart/values.prod.yaml` (for `prod` stack)
 - `../helm-chart/secrets.prod.yaml` (for production secrets - **ensure this file is in `.gitignore` and managed securely**)
 
-The Pulumi configuration files (`Pulumi.dev.yaml`, `Pulumi.yaml`) might also contain stack-specific settings. You can set configuration values using:
+The Pulumi configuration files (`Pulumi.dev.yaml`, `Pulumi.prod.yaml`, `Pulumi.yaml`) might also contain stack-specific settings. You can set configuration values using the Pulumi CLI if needed, though the Automation API script primarily focuses on deployment actions:
 
 ```bash
-pulumi config set <key> <value>
-# e.g., pulumi config set aws:region us-west-2
+pulumi config set <key> <value> --stack <stack-name>
+# e.g., pulumi config set aws:region us-west-2 --stack dev
 ```
 
-### Step 5: Preview the Deployment
+### Step 6: Preview the Deployment
 
-Before making any changes, preview the resources Pulumi will create or modify:
+Before making any changes, preview the resources Pulumi will create or modify using the Automation API script:
 
 ```bash
-pulumi preview
+npm run pulumi preview <stack-name>
+# e.g., npm run pulumi preview dev
 ```
 
 Review the output carefully.
 
-### Step 6: Deploy the Infrastructure
+### Step 7: Deploy the Infrastructure
 
-To deploy the infrastructure:
+To deploy the infrastructure using the Automation API script:
 
 ```bash
-pulumi up
+npm run pulumi up <stack-name>
+# e.g., npm run pulumi up dev
 ```
 
-Pulumi will show you a preview of the changes and ask for confirmation before proceeding. Type `yes` to approve.
+The script will show you a preview of the changes and ask for confirmation before proceeding if the underlying Pulumi program is interactive (which `stack.up()` can be, though the current script logs progress).
 
 This process can take several minutes, especially when creating an EKS cluster for the first time.
 
-### Step 7: Accessing the Cluster
+### Step 8: Accessing the Cluster
 
-Once the deployment is complete, Pulumi will output the `kubeconfig`. You can use this to interact with your EKS cluster using `kubectl`.
+Once the deployment is complete, the Automation API script will output the `kubeconfig` among other outputs.
 
-To configure `kubectl` to use the new cluster's kubeconfig:
+The `automation.ts` script includes instructions on how to save and use the `kubeconfig` from the output of the `up` command. It will look something like this:
 
-```bash
-pulumi stack output kubeconfig > kubeconfig.yaml
-export KUBECONFIG=$(pwd)/kubeconfig.yaml
-kubectl get nodes
+```
+--- To configure kubectl for EKS ---
+1. Save the kubeconfig:
+   echo '<kubeconfig_content>' > kubeconfig-dev.yaml
+2. Set KUBECONFIG environment variable:
+   export KUBECONFIG=$(pwd)/kubeconfig-dev.yaml
+3. Test connection:
+   kubectl get nodes
 ```
 
-You should see the nodes of your EKS cluster.
+Follow these instructions in your terminal.
 
-### Step 8: Accessing Exported Outputs
+### Step 9: Accessing Exported Outputs
 
-The Pulumi program exports several outputs:
+The Pulumi program exports several outputs. You can view these using the Automation API script:
+
+```bash
+npm run pulumi outputs <stack-name>
+# e.g., npm run pulumi outputs dev
+```
+
+This will display all stack outputs, including:
 
 - `kubeconfig`: The kubeconfig file content for accessing the EKS cluster.
-- `ingressHostname`: The hostname or IP of the Ingress (if an ALB is provisioned and the Ingress controller updates its status).
-- `nginxLoadBalancer`: The hostname or IP of the Nginx service if it's of type LoadBalancer.
-
-You can view these outputs at any time with:
-
-```bash
-pulumi stack output
-```
-
-Or for a specific output:
-
-```bash
-pulumi stack output ingressHostname
-```
+- `ingressHostname`: The hostname or IP of the Ingress.
+- `nginxLoadBalancer`: The hostname or IP of the Nginx service.
 
 ## 3. Updating the Deployment
 
-If you make changes to the Pulumi code or the Helm chart:
+If you make changes to the Pulumi code (`index.ts`, `aws-infra.ts`) or the Helm chart:
 
 1.  Navigate to the `Iaas-k8s/aws/pulumi` directory.
-2.  Run `npm install` if you've updated dependencies.
-3.  Run `pulumi preview` to see the planned changes.
-4.  Run `pulumi up` to apply the changes.
+2.  Run `npm install` (or `yarn install`) if you've updated Node.js dependencies.
+3.  Rebuild the TypeScript code:
+    ```bash
+    npm run build
+    # or
+    # yarn build
+    ```
+4.  Run `npm run pulumi preview <stack-name>` to see the planned changes.
+5.  Run `npm run pulumi up <stack-name>` to apply the changes.
 
 ## 4. Destroying the Infrastructure
 
-To tear down all resources managed by your Pulumi stack:
+To tear down all resources managed by your Pulumi stack using the Automation API script:
 
 **Warning**: This action is irreversible and will delete all AWS resources created by this stack (EKS cluster, EC2 instances, Load Balancers, etc.).
 
 ```bash
-pulumi destroy
+npm run pulumi destroy <stack-name>
+# e.g., npm run pulumi destroy dev
 ```
 
-Confirm by typing `yes`.
+The script will ask for confirmation.
 
-To remove the stack itself (after destroying its resources):
+To remove the stack itself (after destroying its resources), you would typically use the Pulumi CLI:
 
 ```bash
 pulumi stack rm <stack-name>
+```
+
+## 5. Other Operations
+
+The Automation API script also supports refreshing the stack state:
+
+```bash
+npm run pulumi refresh <stack-name>
+# e.g., npm run pulumi refresh dev
 ```
 
 ## Troubleshooting

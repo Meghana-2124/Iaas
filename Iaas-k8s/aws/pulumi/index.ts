@@ -44,7 +44,8 @@ const awsLoadBalancerControllerChart = new k8s.helm.v3.Chart(
 );
 
 // Deploy Chimoney Rafiki Helm chart
-const chartPathDir = path.join(__dirname, "..", "helm-chart"); // Renamed to avoid confusion, this is a directory
+const chartPathDir = path.join(__dirname, "../..", "helm-chart"); // Renamed to avoid confusion, this is a directory
+const chartConfigPathDir = path.join(__dirname, "..", "chart-config");
 
 // Function to load and merge YAML files
 function loadAndMergeValues(filePaths: string[]): any {
@@ -64,12 +65,12 @@ function loadAndMergeValues(filePaths: string[]): any {
 }
 
 const valuesFilesPaths: string[] = [
-  path.join(chartPathDir, "values.yaml"),
-  path.join(chartPathDir, `values.${stack}.yaml`),
+  path.join(chartConfigPathDir, "values.yaml"),
+  path.join(chartConfigPathDir, `values.${stack}.yaml`),
 ];
 
 if (stack === "prod") {
-  const prodSecretsFile = path.join(chartPathDir, "secrets.prod.yaml");
+  const prodSecretsFile = path.join(chartConfigPathDir, "secrets.prod.yaml");
   // We will check existence in loadAndMergeValues, but good to log intent
   valuesFilesPaths.push(prodSecretsFile);
   pulumi.log.info(
