@@ -1,9 +1,4 @@
-import {
-  LocalWorkspace,
-  Stack,
-  LocalProgramArgs,
-  UpResult,
-} from "@pulumi/pulumi/automation";
+import { automation } from "@pulumi/pulumi";
 import * as path from "path";
 import * as process from "process";
 
@@ -23,13 +18,15 @@ const main = async () => {
   // The workDir should be the root of the Pulumi project (where Pulumi.yaml is).
   const workDir = path.resolve(".");
 
-  const projectSettings: LocalProgramArgs = {
+  const projectSettings: automation.LocalProgramArgs = {
     stackName: stackName,
     workDir: workDir, // workDir is where Pulumi.yaml and the compiled Pulumi program (e.g., dist/index.js) are located.
   };
 
   // Create or select a stack using the local workspace.
-  const stack = await LocalWorkspace.createOrSelectStack(projectSettings);
+  const stack = await automation.LocalWorkspace.createOrSelectStack(
+    projectSettings
+  );
 
   console.log(`Successfully initialized stack: ${stack.name}`);
   console.log(`Working directory for Pulumi program: ${workDir}`);
@@ -43,7 +40,9 @@ const main = async () => {
     switch (action) {
       case "up":
         console.log(`Running pulumi up for stack: ${stackName}...`);
-        const upRes: UpResult = await stack.up({ onOutput: console.log });
+        const upRes: automation.UpResult = await stack.up({
+          onOutput: console.log,
+        });
         console.log("\n--- Update Summary ---");
         if (upRes.summary) {
           console.log(`Status: ${upRes.summary.result}`);

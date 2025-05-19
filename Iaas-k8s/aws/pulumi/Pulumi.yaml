@@ -1,3 +1,0 @@
-name: chimoney-rafiki-eks
-runtime: nodejs
-description: Pulumi project for Chimoney Rafiki on EKS

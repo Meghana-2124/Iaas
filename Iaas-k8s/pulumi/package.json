@@ -11,8 +11,9 @@
     "@pulumi/aws": "^6.79.1",
     "@pulumi/awsx": "^2.21.1",
     "@pulumi/eks": "^3.9.1",
+    "@pulumi/gcp": "^7.0.0",
     "@pulumi/kubernetes": "^4.23.0",
-    "@pulumi/pulumi": "^3.167.0"
+    "@pulumi/pulumi": "^3.170.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.12",
