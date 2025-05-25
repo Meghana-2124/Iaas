@@ -1,12 +1,42 @@
 {
-  "name": "iaas",
+  "name": "@chimoney/iaas-k8s-deployment",
   "version": "1.0.0",
   "type": "module",
-  "description": "Interledger As A service",
-  "main": "index.js",
-  "repository": "https://github.com/Chimoney/Iaas.git",
+  "description": "Kubernetes Infrastructure as a Service deployment package for multi-cloud environments",
+  "main": "dist/automation.js",
+  "types": "dist/automation.d.ts",
+  "bin": {
+    "iaas-deploy": "dist/automation.js"
+  },
+  "files": [
+    "dist/**/*",
+    "*.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "kubernetes",
+    "pulumi",
+    "infrastructure",
+    "deployment",
+    "aws",
+    "gcp",
+    "iaas",
+    "multi-cloud"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Chimoney/Iaas.git",
+    "directory": "Iaas-k8s/pulumi"
+  },
   "author": "mide <efusanyaae@gmail.com>",
   "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "peerDependencies": {
+    "@pulumi/cli": "^3.0.0"
+  },
   "dependencies": {
     "@pulumi/aws": "^6.81.0",
     "@pulumi/awsx": "^2.21.1",
@@ -21,6 +51,8 @@
   },
   "scripts": {
     "build": "tsc",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run build",
     "pulumi": "node dist/automation.js"
   }
 }

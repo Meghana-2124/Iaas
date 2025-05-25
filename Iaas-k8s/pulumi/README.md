@@ -1,19 +1,133 @@
-# Pulumi Iaas-k8s Deployment Guide
+# IaaS K8s Deployment Package
 
-This guide provides instructions on how to authenticate Pulumi with AWS or GCP and how to deploy this project, which provisions Kubernetes infrastructure (EKS or GKE) and deploys the Rafiki application suite using a Helm chart. The deployment process is managed by an Automation API script (`automation.ts`) and utilizes a `companyName` configuration for resource naming.
+A TypeScript package for deploying Kubernetes infrastructure across multiple cloud providers (AWS, GCP) using Pulumi automation.
+
+## Installation
+
+```bash
+npm install @chimoney/iaas-k8s-deployment
+```
 
 ## Prerequisites
 
-- [Pulumi CLI](https://www.pulumi.com/docs/get-started/install/)
-- [AWS CLI](https://aws.amazon.com/cli/) (if deploying to AWS)
-- [Google Cloud SDK (`gcloud`)](https://cloud.google.com/sdk/install) (if deploying to GCP)
-- [Node.js and npm](https://nodejs.org/en/download/)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
-- [Helm CLI](https://helm.sh/docs/intro/install/) (for chart inspection, not direct deployment by this process)
+- Node.js >= 18.0.0
+- Pulumi CLI installed on the system
+- Cloud provider credentials configured (AWS CLI, gcloud, etc.)
 
-## 1. Authentication
+## Usage
 
-### 1.1. Authenticating Pulumi with AWS
+### As a Library
+
+```typescript
+import {
+  handleDeployment,
+  DeploymentOptions,
+} from "@chimoney/iaas-k8s-deployment";
+
+const options: DeploymentOptions = {
+  action: "up",
+  stackName: "my-company-dev",
+  secretsJson: JSON.stringify({
+    dbPassword: "secret123",
+    apiKey: "api-key-value",
+  }),
+  valuesJson: JSON.stringify({
+    replicaCount: 3,
+    environment: "development",
+  }),
+  companyName: "my-company",
+  workDir: "/path/to/pulumi/project",
+};
+
+const result = await handleDeployment(options);
+
+if (result.success) {
+  console.log("Deployment successful!");
+  console.log("Outputs:", result.outputs);
+  if (result.kubeconfig) {
+    // Save kubeconfig for kubectl access
+    fs.writeFileSync("kubeconfig.yaml", result.kubeconfig);
+  }
+} else {
+  console.error("Deployment failed:", result.error);
+}
+```
+
+### As CLI Tool
+
+After installation, you can use the CLI command:
+
+```bash
+iaas-deploy up my-stack --secretsJson '{"dbPassword":"secret"}' --valuesJson '{"replicas":3}' --companyName 'mycompany'
+```
+
+### Available Actions
+
+- `up` - Deploy/update infrastructure
+- `preview` - Preview changes without applying
+- `destroy` - Destroy infrastructure
+- `outputs` - Get stack outputs
+- `refresh` - Refresh stack state
+
+## Configuration
+
+The package expects:
+
+1. **secretsJson**: JSON string containing sensitive configuration values
+2. **valuesJson**: JSON string containing non-sensitive configuration values
+3. **companyName**: String identifying the company/tenant
+4. **stackName**: Pulumi stack name (e.g., 'company-env')
+
+## Multi-Cloud Support
+
+The package automatically detects cloud provider based on Pulumi configuration:
+
+- AWS: Uses EKS for Kubernetes clusters
+- GCP: Uses GKE for Kubernetes clusters
+
+## Return Values
+
+The `handleDeployment` function returns a `DeploymentResult` object:
+
+```typescript
+interface DeploymentResult {
+  success: boolean;
+  outputs?: any; // Pulumi stack outputs
+  summary?: any; // Operation summary
+  error?: string; // Error message if failed
+  kubeconfig?: string; // Kubernetes config for cluster access
+}
+```
+
+## Examples
+
+### Development Deployment
+
+```typescript
+const devResult = await handleDeployment({
+  action: "up",
+  stackName: "acme-dev",
+  secretsJson: JSON.stringify({ dbPassword: "dev-secret" }),
+  valuesJson: JSON.stringify({ environment: "development", replicas: 1 }),
+  companyName: "acme",
+});
+```
+
+### Production Deployment
+
+```typescript
+const prodResult = await handleDeployment({
+  action: "up",
+  stackName: "acme-prod",
+  secretsJson: JSON.stringify({ dbPassword: "prod-secret" }),
+  valuesJson: JSON.stringify({ environment: "production", replicas: 5 }),
+  companyName: "acme",
+});
+```
+
+## Authentication
+
+### AWS Authentication
 
 Follow standard AWS CLI configuration using IAM user credentials with necessary permissions for EKS, EC2, IAM, S3, etc.
 
@@ -25,27 +139,43 @@ Pulumi will use these default credentials. For specific profiles:
 
 ```bash
 export AWS_PROFILE=your-profile-name
-# Then run Pulumi commands
 ```
 
-### 1.2. Authenticating Pulumi with Google Cloud (GCP)
+### GCP Authentication
 
-**Recommended: Service Account Key**
-
-1.  Create a GCP Service Account with roles like "Kubernetes Engine Admin", "Service Account User", "Compute Admin", "Storage Admin".
-2.  Download the JSON key file.
-3.  Set the environment variable:
-    ```bash
-    export GOOGLE_CREDENTIALS=/path/to/your-service-account-key.json
-    ```
-
-**Alternative: `gcloud` Application Default Credentials (ADC)**
+Authenticate using service account or user credentials:
 
 ```bash
-gcloud auth application-default login
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
 ```
 
-Pulumi will automatically pick up these credentials.
+Or using a service account:
+
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json
+```
+
+## Building and Publishing
+
+For developers working on this package:
+
+```bash
+# Build the package
+npm run build
+
+# Test locally
+npm link
+cd /path/to/test/project
+npm link @chimoney/iaas-k8s-deployment
+
+# Publish to npm
+npm publish
+```
+
+## License
+
+MIT
 
 ## 2. Deploying the Project using Pulumi Automation API
 

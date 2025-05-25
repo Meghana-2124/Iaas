@@ -13,16 +13,12 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
     "types": ["node"],
-    "typeRoots": [
-      "@types",
-      "node_modules/@types",
-      "types"
-    ]
+    "typeRoots": ["@types", "node_modules/@types", "types"]
   },
-  "include": [
-    "**/*.ts",
-    "@types/**/*.d.ts"
-  ],
-  "exclude": ["node_modules", "**/*.js"]
+  "include": ["**/*.ts", "@types/**/*.d.ts"],
+  "exclude": ["node_modules", "**/*.js", "dist"]
 }
