@@ -3,7 +3,10 @@ import type {
   DeploymentOptions,
   DeploymentConfig,
   FieldValidationError,
-} from "./deployment.js";
+  CloudConfig,
+  AwsCloudConfig,
+  GcpCloudConfig,
+} from "../types/index.js";
 
 // =============================================================================
 // Zod Schema Definitions
@@ -33,6 +36,26 @@ export const DeploymentStatusSchema = z.enum([
   "completed",
   "failed",
   "rolling-back",
+]);
+
+// Enhanced Cloud Configuration Schemas
+export const AwsCloudConfigSchema = z.object({
+  region: z.string().min(1, "AWS region is required"),
+  profile: z.string().optional(),
+  accessKeyId: z.string().optional(),
+  secretAccessKey: z.string().optional(),
+});
+
+export const GcpCloudConfigSchema = z.object({
+  project: z.string().min(1, "GCP project is required"),
+  region: z.string().min(1, "GCP region is required"),
+  zone: z.string().optional(),
+  credentials: z.string().optional(), // Path to service account JSON or JSON content
+});
+
+export const CloudConfigSchema = z.union([
+  AwsCloudConfigSchema,
+  GcpCloudConfigSchema,
 ]);
 
 export const DeploymentConfigSchema = z.object({
@@ -131,6 +154,10 @@ export const DeploymentOptionsSchema = z.object({
   validateConfig: z.boolean().optional(),
   enableRollback: z.boolean().optional(),
   timeout: z.number().min(1).max(7200).optional(), // 1 second to 2 hours
+  // Enhanced cloud configuration
+  cloudProvider: z.enum(["aws", "gcp"]).optional(),
+  cloudConfig: CloudConfigSchema.optional(),
+  autoSetupConfig: z.boolean().optional(), // 1 second to 2 hours
 });
 
 // =============================================================================

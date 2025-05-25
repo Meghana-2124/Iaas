@@ -1,26 +1,12 @@
-import * as awsInfra from "./aws-infra.js";
-import * as gcpInfra from "./gcp-infra.js"; // Import GCP infra
+import * as awsInfra from "./src/index.js";
+import * as gcpInfra from "./src/index.js";
 import * as pulumi from "@pulumi/pulumi";
 import * as k8s from "@pulumi/kubernetes";
 import * as path from "path";
-
-// Define interfaces for Kubernetes resource statuses for better type safety
-interface K8sLoadBalancerIngress {
-  hostname?: string;
-  ip?: string;
-}
-
-interface K8sLoadBalancerStatus {
-  ingress?: K8sLoadBalancerIngress[];
-}
-
-interface IngressStatus {
-  loadBalancer?: K8sLoadBalancerStatus;
-}
-
-interface ServiceStatus {
-  loadBalancer?: K8sLoadBalancerStatus;
-}
+import type {
+  IngressStatus,
+  ServiceStatus,
+} from "./src/index.js";
 
 const stack = pulumi.getStack();
 const generalConfig = new pulumi.Config();

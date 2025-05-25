@@ -9,7 +9,7 @@ import {
   ConfigValidationError,
   validateDeploymentConfig,
   ConsoleLogger,
-} from "./automation.js";
+} from "../../automation.js";
 import * as fs from "fs";
 
 // =============================================================================
@@ -93,7 +93,7 @@ async function enhancedDeploymentExample() {
 
     if (validationErrors.length > 0) {
       console.log("❌ Configuration validation failed:");
-      validationErrors.forEach((error) => {
+      validationErrors.forEach((error: any) => {
         console.log(`   • ${error.field}: ${error.message}`);
       });
       return;
@@ -141,13 +141,19 @@ async function enhancedDeploymentExample() {
 
     if (error instanceof ConfigValidationError) {
       console.error("Configuration validation failed:");
-      error.errors.forEach((err) => {
+      error.errors.forEach((err: any) => {
         console.error(`  • ${err.field}: ${err.message}`);
       });
     } else if (error instanceof DeploymentError) {
-      console.error(`Deployment error (${error.code}):`, error.message);
-      if (error.details) {
-        console.error("Details:", JSON.stringify(error.details, null, 2));
+      console.error(
+        `Deployment error (${(error as any).code}):`,
+        (error as any).message
+      );
+      if ((error as any).details) {
+        console.error(
+          "Details:",
+          JSON.stringify((error as any).details, null, 2)
+        );
       }
     } else {
       console.error(error);
@@ -300,7 +306,7 @@ async function errorHandlingExample() {
   } catch (error) {
     if (error instanceof ConfigValidationError) {
       console.log("✅ Caught configuration validation error as expected:");
-      error.errors.forEach((err) => {
+      error.errors.forEach((err: any) => {
         console.log(`  • ${err.field}: ${err.message}`);
       });
     } else {

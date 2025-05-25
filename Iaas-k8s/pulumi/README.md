@@ -2,6 +2,27 @@
 
 A TypeScript package for deploying Kubernetes infrastructure across multiple cloud providers (AWS, GCP) using Pulumi automation.
 
+## Project Structure
+
+```
+pulumi/
+├── automation.ts           # Main automation entry point and library exports
+├── index.ts               # Primary Pulumi program for infrastructure deployment
+├── package.json           # Dependencies and npm scripts
+├── tsconfig.json          # TypeScript configuration
+├── config/                # Configuration files
+│   ├── secrets.json       # Kubernetes secrets configuration
+│   └── values.json        # Helm values configuration
+├── src/                   # Source code organized by functionality
+│   ├── index.ts           # Barrel export for all modules
+│   ├── cli/               # Command-line interface modules
+│   ├── core/              # Core infrastructure and deployment logic
+│   ├── types/             # TypeScript type definitions
+│   ├── utils/             # Utility functions and helpers
+│   └── examples/          # Example usage and integration tests
+└── dist/                  # Compiled JavaScript output (generated)
+```
+
 ## Installation
 
 ```bash

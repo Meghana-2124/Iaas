@@ -5,11 +5,22 @@
   "description": "Kubernetes Infrastructure as a Service deployment package for multi-cloud environments",
   "main": "dist/automation.js",
   "types": "dist/automation.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/automation.js",
+      "types": "./dist/automation.d.ts"
+    },
+    "./core": {
+      "import": "./dist/src/index.js",
+      "types": "./dist/src/index.d.ts"
+    }
+  },
   "bin": {
     "iaas-deploy": "dist/automation.js"
   },
   "files": [
     "dist/**/*",
+    "src/**/*.ts",
     "*.ts",
     "README.md",
     "LICENSE"
@@ -49,8 +60,12 @@
   },
   "scripts": {
     "build": "tsc",
-    "prepack": "npm run build",
+    "clean": "rm -rf dist",
+    "prepack": "npm run clean && npm run build",
     "prepublishOnly": "npm run build",
-    "pulumi": "node dist/automation.js"
+    "pulumi": "node dist/automation.js",
+    "dev": "npm run build && node dist/automation.js",
+    "lint": "echo 'Add linting configuration as needed'",
+    "test": "echo 'Add tests as needed'"
   }
 }

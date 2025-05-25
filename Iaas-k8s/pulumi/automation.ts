@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // Export the main deployment functionality for use as a library
-export { handleDeployment, runCLI } from "./deployment.js";
+export { handleDeployment, runCLI } from "./src/index.js";
 
 // Export all types and interfaces for better developer experience
 export type {
@@ -14,14 +14,14 @@ export type {
   DeploymentProgress,
   DeploymentConfig,
   FieldValidationError,
-} from "./deployment.js";
+} from "./src/index.js";
 
 // Export error classes
 export {
   DeploymentError,
   ConfigValidationError,
   RollbackError,
-} from "./deployment.js";
+} from "./src/index.js";
 
 // Export utility functions
 export {
@@ -30,10 +30,10 @@ export {
   createProgressCallback,
   withErrorHandling,
   performRollback,
-} from "./deployment.js";
+} from "./src/index.js";
 
 // Keep the CLI functionality when run directly
-import { runCLI } from "./deployment.js";
+import { runCLI } from "./src/index.js";
 
 const main = async () => {
   await runCLI();

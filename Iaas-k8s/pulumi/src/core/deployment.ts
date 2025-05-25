@@ -4,82 +4,19 @@ import {
   validateDeploymentOptionsWithZod,
   validateSecretsStructure,
   validateValuesStructure,
-} from "./validation.js";
-import { DeploymentMonitor } from "./monitoring.js";
-
-// =============================================================================
-// Type Definitions and Interfaces
-// =============================================================================
-
-export type LogLevel = "debug" | "info" | "warn" | "error" | "silent";
-export type DeploymentAction =
-  | "up"
-  | "preview"
-  | "destroy"
-  | "outputs"
-  | "refresh"
-  | "rollback";
-export type DeploymentStatus =
-  | "initializing"
-  | "configuring"
-  | "deploying"
-  | "completed"
-  | "failed"
-  | "rolling-back";
-
-export interface Logger {
-  debug(message: string, ...args: any[]): void;
-  info(message: string, ...args: any[]): void;
-  warn(message: string, ...args: any[]): void;
-  error(message: string, ...args: any[]): void;
-}
-
-export interface DeploymentProgress {
-  status: DeploymentStatus;
-  message: string;
-  timestamp: Date;
-  metadata?: Record<string, any>;
-}
-
-export interface DeploymentOptions {
-  action: DeploymentAction;
-  stackName: string;
-  secretsJson: string;
-  valuesJson?: string;
-  companyName: string;
-  workDir?: string;
-  helmChartPath?: string;
-  logLevel?: LogLevel;
-  onProgress?: (progress: DeploymentProgress) => void;
-  validateConfig?: boolean;
-  enableRollback?: boolean;
-  timeout?: number; // in seconds
-}
-
-export interface DeploymentResult {
-  success: boolean;
-  outputs?: any;
-  summary?: any;
-  error?: string;
-  kubeconfig?: string;
-  rollbackPerformed?: boolean;
-  duration?: number; // in milliseconds
-}
-
-export interface FieldValidationError {
-  field: string;
-  message: string;
-  value?: any;
-}
-
-export interface DeploymentConfig {
-  stackName: string;
-  secretsJson: string;
-  valuesJson?: string;
-  companyName: string;
-  cloudProvider?: string;
-  helmChartPath?: string;
-}
+} from "../utils/validation.js";
+import { DeploymentMonitor } from "../utils/monitoring.js";
+import type {
+  LogLevel,
+  DeploymentAction,
+  DeploymentStatus,
+  Logger,
+  DeploymentProgress,
+  DeploymentOptions,
+  DeploymentResult,
+  FieldValidationError,
+  DeploymentConfig,
+} from "../types/index.js";
 
 // =============================================================================
 // Error Classes

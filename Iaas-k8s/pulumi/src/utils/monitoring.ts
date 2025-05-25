@@ -2,7 +2,7 @@ import type {
   Logger,
   DeploymentProgress,
   DeploymentResult,
-} from "./deployment.js";
+} from "../types/index.js";
 
 // =============================================================================
 // Metrics and Monitoring
