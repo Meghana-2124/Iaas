@@ -54,6 +54,10 @@ async function main() {
             describe: "Cloud config as JSON string (see docs)",
             type: "string",
           })
+          .option("cloudConfigFile", {
+            describe: "Path to cloud config JSON file",
+            type: "string",
+          })
           .option("autoSetupConfig", {
             describe: "Automatically setup Pulumi config for the stack",
             type: "boolean",
@@ -82,11 +86,53 @@ async function main() {
             describe: "Deployment timeout in seconds",
             type: "number",
           })
+          .option("secretsFile", {
+            describe: "Path to secrets JSON file",
+            type: "string",
+          })
+          .option("valuesFile", {
+            describe: "Path to values JSON file",
+            type: "string",
+          })
           .help(),
       async (args) => {
-        // Parse cloudConfig JSON if provided
+        // Prefer file input if provided
+        let secretsJson = args.secretsJson;
+        let valuesJson = args.valuesJson;
         let cloudConfig = undefined;
-        if (args.cloudConfig) {
+        const fs = await import("fs");
+        if (args.secretsFile) {
+          try {
+            secretsJson = fs.readFileSync(args.secretsFile, "utf8");
+          } catch (e) {
+            console.error(
+              `Failed to read secrets file: ${args.secretsFile}\n${e}`
+            );
+            process.exit(1);
+          }
+        }
+        if (args.valuesFile) {
+          try {
+            valuesJson = fs.readFileSync(args.valuesFile, "utf8");
+          } catch (e) {
+            console.error(
+              `Failed to read values file: ${args.valuesFile}\n${e}`
+            );
+            process.exit(1);
+          }
+        }
+        // Prefer cloudConfigFile if provided
+        if (args.cloudConfigFile) {
+          try {
+            const fileContent = fs.readFileSync(args.cloudConfigFile, "utf8");
+            cloudConfig = JSON.parse(fileContent);
+          } catch (e) {
+            console.error(
+              `Failed to read cloud config file: ${args.cloudConfigFile}\n${e}`
+            );
+            process.exit(1);
+          }
+        } else if (args.cloudConfig) {
           try {
             cloudConfig = JSON.parse(args.cloudConfig);
           } catch (e) {
@@ -96,9 +142,9 @@ async function main() {
         }
         const options: DeploymentOptions = {
           action: args.action as any,
-          stackName: args.stackName || "", // fallback to empty string for type safety
-          secretsJson: args.secretsJson,
-          valuesJson: args.valuesJson,
+          stackName: args.stackName || "",
+          secretsJson,
+          valuesJson,
           companyName: args.companyName,
           cloudProvider: args.cloudProvider as any,
           cloudConfig,
@@ -130,7 +176,8 @@ async function main() {
     .alias("h", "help")
     .epilog(
       "--autoSetupConfig: If set, the CLI will automatically configure the Pulumi stack for you (cloud provider, region, etc). " +
-        "You can also pass --cloudConfig as a JSON string for advanced cloud setup."
+        "You can also pass --cloudConfig as a JSON string or --cloudConfigFile as a JSON file for advanced cloud setup.\n" +
+        "--secretsFile/--valuesFile: Use these to provide secrets/values as JSON files instead of raw JSON strings. If both a file and a string are provided, the file takes precedence."
     )
     .strict();
 
