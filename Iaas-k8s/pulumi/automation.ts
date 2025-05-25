@@ -2,7 +2,35 @@
 
 // Export the main deployment functionality for use as a library
 export { handleDeployment, runCLI } from "./deployment.js";
-export type { DeploymentOptions, DeploymentResult } from "./deployment.js";
+
+// Export all types and interfaces for better developer experience
+export type {
+  DeploymentOptions,
+  DeploymentResult,
+  DeploymentAction,
+  DeploymentStatus,
+  LogLevel,
+  Logger,
+  DeploymentProgress,
+  DeploymentConfig,
+  FieldValidationError,
+} from "./deployment.js";
+
+// Export error classes
+export {
+  DeploymentError,
+  ConfigValidationError,
+  RollbackError,
+} from "./deployment.js";
+
+// Export utility functions
+export {
+  ConsoleLogger,
+  validateDeploymentConfig,
+  createProgressCallback,
+  withErrorHandling,
+  performRollback,
+} from "./deployment.js";
 
 // Keep the CLI functionality when run directly
 import { runCLI } from "./deployment.js";

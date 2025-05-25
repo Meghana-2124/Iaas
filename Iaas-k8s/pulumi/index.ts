@@ -156,7 +156,11 @@ function loadAndMergeValues(
   return mergedValues;
 }
 
-const chartPathDir = path.join(__dirname, "../..", "helm-chart");
+// Support for custom Helm chart path via environment variable
+const defaultChartPath = path.join(__dirname, "../..", "helm-chart");
+const chartPathDir = process.env.HELM_CHART_PATH || defaultChartPath;
+
+pulumi.log.info(`Using Helm chart path: ${chartPathDir}`);
 
 // Removed chartConfigPathDir and valuesFilesPaths as they are no longer used for loading values or secrets.
 // All configurations are expected to come from helmSecretsJson and helmValuesJson.

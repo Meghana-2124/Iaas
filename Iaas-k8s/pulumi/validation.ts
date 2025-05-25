@@ -1,0 +1,305 @@
+import { z } from "zod";
+import type {
+  DeploymentOptions,
+  DeploymentConfig,
+  FieldValidationError,
+} from "./deployment.js";
+
+// =============================================================================
+// Zod Schema Definitions
+// =============================================================================
+
+export const LogLevelSchema = z.enum([
+  "debug",
+  "info",
+  "warn",
+  "error",
+  "silent",
+]);
+
+export const DeploymentActionSchema = z.enum([
+  "up",
+  "preview",
+  "destroy",
+  "outputs",
+  "refresh",
+  "rollback",
+]);
+
+export const DeploymentStatusSchema = z.enum([
+  "initializing",
+  "configuring",
+  "deploying",
+  "completed",
+  "failed",
+  "rolling-back",
+]);
+
+export const DeploymentConfigSchema = z.object({
+  stackName: z
+    .string()
+    .min(1, "Stack name is required")
+    .regex(
+      /^[a-zA-Z0-9-_]+$/,
+      "Stack name can only contain alphanumeric characters, hyphens, and underscores"
+    ),
+
+  secretsJson: z
+    .string()
+    .min(1, "Secrets JSON is required")
+    .refine((val) => {
+      try {
+        const parsed = JSON.parse(val);
+        return typeof parsed === "object" && parsed !== null;
+      } catch {
+        return false;
+      }
+    }, "Secrets JSON must be valid JSON object"),
+
+  valuesJson: z
+    .string()
+    .optional()
+    .refine((val) => {
+      if (!val) return true;
+      try {
+        const parsed = JSON.parse(val);
+        return typeof parsed === "object" && parsed !== null;
+      } catch {
+        return false;
+      }
+    }, "Values JSON must be valid JSON object"),
+
+  companyName: z
+    .string()
+    .min(1, "Company name is required")
+    .regex(
+      /^[a-zA-Z0-9-_]+$/,
+      "Company name can only contain alphanumeric characters, hyphens, and underscores"
+    ),
+
+  cloudProvider: z.enum(["aws", "gcp"]).optional(),
+
+  helmChartPath: z.string().optional(),
+});
+
+export const DeploymentOptionsSchema = z.object({
+  action: DeploymentActionSchema,
+  stackName: z
+    .string()
+    .min(1, "Stack name is required")
+    .regex(
+      /^[a-zA-Z0-9-_]+$/,
+      "Stack name can only contain alphanumeric characters, hyphens, and underscores"
+    ),
+
+  secretsJson: z
+    .string()
+    .min(1, "Secrets JSON is required")
+    .refine((val) => {
+      try {
+        const parsed = JSON.parse(val);
+        return typeof parsed === "object" && parsed !== null;
+      } catch {
+        return false;
+      }
+    }, "Secrets JSON must be valid JSON object"),
+
+  valuesJson: z
+    .string()
+    .optional()
+    .refine((val) => {
+      if (!val) return true;
+      try {
+        const parsed = JSON.parse(val);
+        return typeof parsed === "object" && parsed !== null;
+      } catch {
+        return false;
+      }
+    }, "Values JSON must be valid JSON object"),
+
+  companyName: z
+    .string()
+    .min(1, "Company name is required")
+    .regex(
+      /^[a-zA-Z0-9-_]+$/,
+      "Company name can only contain alphanumeric characters, hyphens, and underscores"
+    ),
+
+  workDir: z.string().optional(),
+  helmChartPath: z.string().optional(),
+  logLevel: LogLevelSchema.optional(),
+  validateConfig: z.boolean().optional(),
+  enableRollback: z.boolean().optional(),
+  timeout: z.number().min(1).max(7200).optional(), // 1 second to 2 hours
+});
+
+// =============================================================================
+// Enhanced Validation Functions
+// =============================================================================
+
+export function validateDeploymentOptionsWithZod(
+  options: DeploymentOptions
+): FieldValidationError[] {
+  const result = DeploymentOptionsSchema.safeParse(options);
+
+  if (result.success) {
+    return [];
+  }
+
+  return result.error.issues.map((issue) => ({
+    field: issue.path.join("."),
+    message: issue.message,
+    value: issue.path.reduce((obj, key) => obj?.[key], options as any),
+  }));
+}
+
+export function validateDeploymentConfigWithZod(
+  config: DeploymentConfig
+): FieldValidationError[] {
+  const result = DeploymentConfigSchema.safeParse(config);
+
+  if (result.success) {
+    return [];
+  }
+
+  return result.error.issues.map((issue) => ({
+    field: issue.path.join("."),
+    message: issue.message,
+    value: issue.path.reduce((obj, key) => obj?.[key], config as any),
+  }));
+}
+
+// =============================================================================
+// Additional Validation Helpers
+// =============================================================================
+
+export function validateSecretsStructure(
+  secretsJson: string
+): FieldValidationError[] {
+  const errors: FieldValidationError[] = [];
+
+  try {
+    const secrets = JSON.parse(secretsJson);
+
+    // Check for required secret fields (customize based on your needs)
+    const requiredSecrets = ["dbPassword"];
+    const recommendedSecrets = ["jwtSecret", "redisPassword"];
+
+    for (const required of requiredSecrets) {
+      if (!secrets[required]) {
+        errors.push({
+          field: `secrets.${required}`,
+          message: `Required secret '${required}' is missing`,
+          value: undefined,
+        });
+      }
+    }
+
+    for (const recommended of recommendedSecrets) {
+      if (!secrets[recommended]) {
+        // This is a warning, not an error
+        console.warn(`Recommended secret '${recommended}' is missing`);
+      }
+    }
+
+    // Validate secret values are not empty
+    for (const [key, value] of Object.entries(secrets)) {
+      if (typeof value === "string" && value.trim() === "") {
+        errors.push({
+          field: `secrets.${key}`,
+          message: `Secret '${key}' cannot be empty`,
+          value: value,
+        });
+      }
+    }
+  } catch (e) {
+    errors.push({
+      field: "secretsJson",
+      message: "Invalid JSON format for secrets",
+      value: secretsJson,
+    });
+  }
+
+  return errors;
+}
+
+export function validateValuesStructure(
+  valuesJson: string
+): FieldValidationError[] {
+  const errors: FieldValidationError[] = [];
+
+  if (!valuesJson) return errors;
+
+  try {
+    const values = JSON.parse(valuesJson);
+
+    // Validate common value structures
+    if (values.replicaCount !== undefined) {
+      if (typeof values.replicaCount !== "number" || values.replicaCount < 1) {
+        errors.push({
+          field: "values.replicaCount",
+          message: "replicaCount must be a positive number",
+          value: values.replicaCount,
+        });
+      }
+    }
+
+    if (values.resources) {
+      const resources = values.resources;
+
+      if (resources.requests) {
+        if (
+          resources.requests.cpu &&
+          typeof resources.requests.cpu !== "string"
+        ) {
+          errors.push({
+            field: "values.resources.requests.cpu",
+            message: 'CPU request must be a string (e.g., "100m")',
+            value: resources.requests.cpu,
+          });
+        }
+
+        if (
+          resources.requests.memory &&
+          typeof resources.requests.memory !== "string"
+        ) {
+          errors.push({
+            field: "values.resources.requests.memory",
+            message: 'Memory request must be a string (e.g., "128Mi")',
+            value: resources.requests.memory,
+          });
+        }
+      }
+    }
+  } catch (e) {
+    errors.push({
+      field: "valuesJson",
+      message: "Invalid JSON format for values",
+      value: valuesJson,
+    });
+  }
+
+  return errors;
+}
+
+// =============================================================================
+// Type Guards
+// =============================================================================
+
+export function isValidDeploymentAction(
+  action: string
+): action is z.infer<typeof DeploymentActionSchema> {
+  return DeploymentActionSchema.safeParse(action).success;
+}
+
+export function isValidLogLevel(
+  level: string
+): level is z.infer<typeof LogLevelSchema> {
+  return LogLevelSchema.safeParse(level).success;
+}
+
+export function isValidDeploymentStatus(
+  status: string
+): status is z.infer<typeof DeploymentStatusSchema> {
+  return DeploymentStatusSchema.safeParse(status).success;
+}
