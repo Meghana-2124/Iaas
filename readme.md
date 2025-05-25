@@ -42,10 +42,17 @@ Iaas/
    npm run build
    ```
 
-4. **Deploy infrastructure**:
+4. **Deploy infrastructure (with fully automated config setup)**:
    ```bash
-   npm run pulumi -- up <stack-name>
+   npm run pulumi -- up dev \
+     --companyName mycompany \
+     --secretsJson '{"dbPassword":"secret"}' \
+     --valuesJson '{"replicas":3}' \
+     --cloudProvider aws \
+     --cloudConfig '{"region":"us-east-1"}' \
+     --autoSetupConfig
    ```
+   > You can use `--cloudProvider`, `--cloudConfig`, and `--autoSetupConfig` to skip all manual `pulumi config set ...` steps. See the Pulumi README for details.
 
 ## Features
 
@@ -56,6 +63,7 @@ Iaas/
 - ✅ **Progress monitoring and logging**
 - ✅ **Configuration validation**
 - ✅ **Automatic rollback capabilities**
+- ✅ **Fully automated Pulumi config setup via CLI**
 
 For detailed usage instructions, see [Iaas-k8s/README.md](./Iaas-k8s/README.md).
 

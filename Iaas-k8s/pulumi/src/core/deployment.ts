@@ -6,6 +6,7 @@ import {
   validateValuesStructure,
 } from "../utils/validation.js";
 import { DeploymentMonitor } from "../utils/monitoring.js";
+import { PulumiConfigManager } from "../utils/config-manager.js";
 import type {
   LogLevel,
   DeploymentAction,
@@ -470,6 +471,57 @@ export async function handleDeployment(
 
     logger.info(`Successfully initialized stack: ${stack.name}`);
     logger.info(`Working directory for Pulumi program: ${resolvedWorkDir}`);
+
+    // =============================================================================
+    // Automatic Pulumi Config Setup (if enabled)
+    // =============================================================================
+    if (
+      options.autoSetupConfig &&
+      options.cloudProvider &&
+      options.cloudConfig
+    ) {
+      logger.info(
+        "Auto-setup of Pulumi config enabled. Setting up stack config..."
+      );
+      // Ensure stack is initialized before config setup
+      const resolvedWorkDir = workDir || path.resolve(".");
+      const projectSettings: automation.LocalProgramArgs = {
+        stackName: stackName,
+        workDir: resolvedWorkDir,
+      };
+      stack = await withErrorHandling(
+        () => automation.LocalWorkspace.createOrSelectStack(projectSettings),
+        logger,
+        "stack initialization (for autoSetupConfig)"
+      );
+      const configManager = new PulumiConfigManager(logger);
+      await configManager.setupPulumiConfig(resolvedWorkDir, stack, {
+        stackName,
+        cloudProvider: options.cloudProvider,
+        companyName,
+        cloudConfig: options.cloudConfig,
+        secretsJson,
+        valuesJson,
+        helmChartPath,
+      });
+      logger.info("Pulumi config auto-setup complete.");
+    }
+
+    // If stack is not yet initialized (autoSetupConfig was not used), initialize it now
+    if (!stack) {
+      const resolvedWorkDir = workDir || path.resolve(".");
+      const projectSettings: automation.LocalProgramArgs = {
+        stackName: stackName,
+        workDir: resolvedWorkDir,
+      };
+      stack = await withErrorHandling(
+        () => automation.LocalWorkspace.createOrSelectStack(projectSettings),
+        logger,
+        "stack initialization"
+      );
+      logger.info(`Successfully initialized stack: ${stack.name}`);
+      logger.info(`Working directory for Pulumi program: ${resolvedWorkDir}`);
+    }
 
     // =============================================================================
     // Configuration Setup

@@ -82,6 +82,41 @@ After installation, you can use the CLI command:
 iaas-deploy up my-stack --secretsJson '{"dbPassword":"secret"}' --valuesJson '{"replicas":3}' --companyName 'mycompany'
 ```
 
+#### 🚀 Fully Automated Pulumi Config Setup (No Manual pulumi config set Needed)
+
+You can use the CLI's `--autoSetupConfig` flag to automatically configure the Pulumi stack for you, including cloud provider, region, and other settings. Pass `--cloudProvider` and `--cloudConfig` as needed:
+
+```bash
+iaas-deploy up dev \
+  --companyName mycompany \
+  --secretsJson '{"dbPassword":"secret"}' \
+  --valuesJson '{"replicas":3}' \
+  --cloudProvider aws \
+  --cloudConfig '{"region":"us-east-1","profile":"default"}' \
+  --autoSetupConfig
+```
+
+- `--cloudProvider` can be `aws` or `gcp`.
+- `--cloudConfig` is a JSON string with provider-specific config (see below).
+- `--autoSetupConfig` tells the CLI to set all Pulumi config for you (no manual `pulumi config set ...` required).
+
+**Example for GCP:**
+
+```bash
+iaas-deploy up dev \
+  --companyName mycompany \
+  --secretsJson '{"dbPassword":"secret"}' \
+  --valuesJson '{"replicas":3}' \
+  --cloudProvider gcp \
+  --cloudConfig '{"project":"my-gcp-project","region":"us-central1","zone":"us-central1-a"}' \
+  --autoSetupConfig
+```
+
+#### Supported --cloudConfig fields
+
+- For AWS: `{ "region": "us-east-1", "profile": "default", "accessKeyId": "...", "secretAccessKey": "..." }`
+- For GCP: `{ "project": "my-gcp-project", "region": "us-central1", "zone": "us-central1-a", "credentials": "/path/to/key.json" }`
+
 ### Available Actions
 
 - `up` - Deploy/update infrastructure
@@ -122,28 +157,28 @@ interface DeploymentResult {
 
 ## Examples
 
-### Development Deployment
+### Development Deployment (with auto-setup)
 
-```typescript
-const devResult = await handleDeployment({
-  action: "up",
-  stackName: "acme-dev",
-  secretsJson: JSON.stringify({ dbPassword: "dev-secret" }),
-  valuesJson: JSON.stringify({ environment: "development", replicas: 1 }),
-  companyName: "acme",
-});
+```bash
+iaas-deploy up acme-dev \
+  --companyName acme \
+  --secretsJson '{"dbPassword":"dev-secret"}' \
+  --valuesJson '{"environment":"development","replicas":1}' \
+  --cloudProvider aws \
+  --cloudConfig '{"region":"us-east-1"}' \
+  --autoSetupConfig
 ```
 
-### Production Deployment
+### Production Deployment (with auto-setup)
 
-```typescript
-const prodResult = await handleDeployment({
-  action: "up",
-  stackName: "acme-prod",
-  secretsJson: JSON.stringify({ dbPassword: "prod-secret" }),
-  valuesJson: JSON.stringify({ environment: "production", replicas: 5 }),
-  companyName: "acme",
-});
+```bash
+iaas-deploy up acme-prod \
+  --companyName acme \
+  --secretsJson '{"dbPassword":"prod-secret"}' \
+  --valuesJson '{"environment":"production","replicas":5}' \
+  --cloudProvider aws \
+  --cloudConfig '{"region":"us-east-1"}' \
+  --autoSetupConfig
 ```
 
 ## Authentication
