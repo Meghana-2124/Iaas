@@ -1,0 +1,23 @@
+{{- if .Values.rafikiAuth.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.rafikiAuth.name "context" .) }}
+  labels:
+    {{- include "iaas-rafiki.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.rafikiAuth.name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.rafikiAuth.name "context" .) }}
+  minReplicas: {{ .Values.rafikiAuth.hpa.minReplicas }}
+  maxReplicas: {{ .Values.rafikiAuth.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.rafikiAuth.hpa.targetCPUUtilizationPercentage }}
+{{- end }}

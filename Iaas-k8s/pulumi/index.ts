@@ -3,10 +3,7 @@ import * as gcpInfra from "./src/index.js";
 import * as pulumi from "@pulumi/pulumi";
 import * as k8s from "@pulumi/kubernetes";
 import * as path from "path";
-import type {
-  IngressStatus,
-  ServiceStatus,
-} from "./src/index.js";
+import type { IngressStatus, ServiceStatus } from "./src/index.js";
 
 const stack = pulumi.getStack();
 const generalConfig = new pulumi.Config();
@@ -173,6 +170,19 @@ if (!helmValuesJson) {
 // File paths array is removed as it's no longer used.
 const mergedChartValues = loadAndMergeValues(helmSecretsJson, helmValuesJson);
 
+// Ensure HPA values are set for nginx if not provided
+if (!mergedChartValues.nginx) {
+  mergedChartValues.nginx = {};
+}
+if (!mergedChartValues.nginx.hpa) {
+  mergedChartValues.nginx.hpa = {
+    enabled: true,
+    minReplicas: 1,
+    maxReplicas: 5,
+    targetCPUUtilizationPercentage: 80,
+  };
+}
+
 if (cloudProvider === "gcp") {
   if (!mergedChartValues.ingress) {
     mergedChartValues.ingress = {};
@@ -215,48 +225,3 @@ const ingressResourceName = "rafiki-ingress";
 // The Helm chart's nginx-service.yaml uses a helper that resolves to `ReleaseName-{{.Values.nginx.name}}`.
 // We assume .Values.nginx.name is 'nginx' (as per the original comment),
 // so the K8s service name will be `${helmReleaseName}-nginx`.
-const nginxServicePlainName = `${helmReleaseName}-nginx`; // Changed from pulumi.interpolate
-
-export const ingressHostname = iaasRafikiChart
-  .getResourceProperty(
-    "networking.k8s.io/v1/Ingress",
-    ingressResourceName, // Use constructed name
-    "status"
-  )
-  .apply((status: IngressStatus | undefined) => {
-    // Add type assertion for status
-    if (
-      status &&
-      status.loadBalancer &&
-      status.loadBalancer.ingress &&
-      status.loadBalancer.ingress[0]
-    ) {
-      return (
-        status.loadBalancer.ingress[0].hostname ||
-        status.loadBalancer.ingress[0].ip
-      );
-    }
-    return "Ingress status not available yet.";
-  });
-
-export const nginxLoadBalancer = iaasRafikiChart
-  .getResourceProperty(
-    "v1/Service",
-    nginxServicePlainName, // Use the new plain string variable
-    "status"
-  )
-  .apply((status: ServiceStatus | undefined) => {
-    // Add type assertion for status
-    if (
-      status &&
-      status.loadBalancer &&
-      status.loadBalancer.ingress &&
-      status.loadBalancer.ingress[0]
-    ) {
-      return (
-        status.loadBalancer.ingress[0].hostname ||
-        status.loadBalancer.ingress[0].ip
-      );
-    }
-    return "Nginx LoadBalancer status not available yet (or service not of Type=LoadBalancer).";
-  });

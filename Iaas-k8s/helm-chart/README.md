@@ -128,9 +128,49 @@ These steps are for deploying the chart directly with Helm, outside of the Pulum
 - `templates/ingress.yaml`: Defines Ingress resource. For GCP, Pulumi `index.ts` injects an annotation for the static IP.
 - `templates/configmap.yaml`: Nginx configuration.
 
+# Horizontal Pod Autoscaler (HPA)
+
+## Enabling HPA for Nginx, Rafiki-Backend, and Rafiki-Auth
+
+This chart supports deploying a HorizontalPodAutoscaler (HPA) for the Nginx, Rafiki-Backend, and Rafiki-Auth deployments. You can configure HPA for each component via their respective `hpa` sections in your values file or via Pulumi automation.
+
+Example configuration in `values.yaml`:
+
+```yaml
+nginx:
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+
+rafikiBackend:
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+
+rafikiAuth:
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+```
+
+- `enabled`: Set to `true` to enable HPA for the component.
+- `minReplicas`: Minimum number of pod replicas.
+- `maxReplicas`: Maximum number of pod replicas.
+- `targetCPUUtilizationPercentage`: Target average CPU utilization across pods.
+
+If deploying via Pulumi, you can override these values in your `helmValuesJson`.
+
+> **Note:** Each component (nginx, rafikiBackend, rafikiAuth) has its own HPA configuration and template. HPAs will only be created if the corresponding `hpa.enabled` value is set to `true`.
+
 ## Customization (Manual Helm)
 
-- Modify `values.yaml`, `values.dev.yaml`, `values.prod.yaml`.
-- For structural changes, edit templates in `templates/`.
+- Modify `values.yaml`, `values.dev.yaml`, `values.prod.yaml` for each component's HPA settings.
+- For structural changes, edit the corresponding HPA templates in `templates/` (e.g., `nginx-hpa.yaml`, `rafiki-backend-hpa.yaml`, `rafiki-auth-hpa.yaml`).
 
 Remember to always include `companyName` in your values when working with this chart, as `Chart.yaml` depends on it.
