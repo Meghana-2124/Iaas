@@ -1,4 +1,4 @@
-# Default values for chimoney-rafiki chart.
+# Default values for {{ .Values.companyName }}-rafiki chart.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
@@ -84,8 +84,8 @@ nginx:
   configMap:
     name: nginx-conf
   config:
-    serverNameIlp: "ilp.chimoney.com"
-    serverNameAuth: "auth-ilp.chimoney.io"
+    serverNameIlp: "ilp.{{ .Values.companyName }}.com"
+    serverNameAuth: "auth-ilp.{{ .Values.companyName }}.io"
     rafikiBackendServiceHost: "{{ .Release.Name }}-rafiki-backend" # Will be templated to use the correct service name
     rafikiAuthServiceHost: "{{ .Release.Name }}-rafiki-auth"
     # GraphQL allowed IPs (example, make this a list)
@@ -114,6 +114,7 @@ ingress:
   enabled: true # Set to false if Nginx service type is of LoadBalancer and is the preferred entry
   name: rafiki-ingress
   className: "alb" # For AWS ALB Ingress Controller
+  # companyName: chimoney # Add this line to define companyName, or pass it via --set or a values file
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
@@ -122,24 +123,24 @@ ingress:
     # alb.ingress.kubernetes.io/certificate-arn: # ARN for ACM certificate
   hosts:
     ilp:
-      host: ilp.chimoney.com # Override per environment
+      host: ilp.{{ .Values.companyName }}.com # Override per environment
       paths:
         - path: /
           pathType: Prefix
           serviceNameSuffix: "nginx" # Point to nginx service
           servicePort: 80 # Nginx service port
     auth:
-      host: auth-ilp.chimoney.io # Override per environment
+      host: auth-ilp.{{ .Values.companyName }}.io # Override per environment
       paths:
         - path: /
           pathType: Prefix
           serviceNameSuffix: "nginx" # Point to nginx service
           servicePort: 80 # Nginx service port
   # tls: # Example TLS configuration
-  #   - secretName: chimoney-tls-secret # K8s secret containing TLS cert and key
+  #   - secretName: {{ .Values.companyName }}-tls-secret # K8s secret containing TLS cert and key
   #     hosts:
-  #       - ilp.chimoney.com
-  #       - auth-ilp.chimoney.io
+  #       - ilp.{{ .Values.companyName }}.com
+  #       - auth-ilp.{{ .Values.companyName }}.io
 
 # This section defines the names of secret objects to be created.
 # The actual 'data' for secrets should be populated securely,

@@ -3,19 +3,63 @@ import * as path from "path";
 import * as process from "process";
 
 const main = async () => {
-  const args = process.argv.slice(2);
-  if (args.length < 2) {
-    console.error("Usage: node automation.js <action> <stackName>");
+  const rawArgs = process.argv.slice(2); // Changed from 'args'
+  let action: string | undefined;
+  let stackName: string | undefined;
+  let secretsJsonString: string | undefined;
+  let valuesJsonString: string | undefined;
+  let companyName: string | undefined; // Added companyName
+
+  // Updated argument parsing logic
+  if (rawArgs.length < 2) {
+    // Adjusted for potentially more args
+    // Updated usage message
+    console.error(
+      "Usage: node automation.js <action> <stackName> --secretsJson <json_string> --valuesJson <json_string> [--companyName <string>]"
+    );
     console.error("Actions: up, preview, destroy, outputs, refresh");
-    console.error("Example: node automation.js up dev");
+    console.error(
+      "Example: node automation.js up dev --secretsJson '{\"dbPassword\":\"s3cr3t\"}' --valuesJson '{\"replicaCount\":3}' --companyName 'mycorp'"
+    );
     process.exit(1);
   }
 
-  const action = args[0];
-  const stackName = args[1];
+  action = rawArgs[0];
+  stackName = rawArgs[1];
 
-  // Assuming this script (automation.js) is in 'dist/' and run from the 'pulumi/' project root directory.
-  // The workDir should be the root of the Pulumi project (where Pulumi.yaml is).
+  // Parse additional optional arguments
+  for (let i = 2; i < rawArgs.length; i++) {
+    const arg = rawArgs[i];
+    if (arg === "--secretsJson") {
+      if (i + 1 < rawArgs.length && !rawArgs[i + 1].startsWith("--")) {
+        secretsJsonString = rawArgs[i + 1];
+        i++; // consume value
+      } else {
+        console.error("Error: --secretsJson requires a JSON string value.");
+        process.exit(1);
+      }
+    } else if (arg === "--valuesJson") {
+      if (i + 1 < rawArgs.length && !rawArgs[i + 1].startsWith("--")) {
+        valuesJsonString = rawArgs[i + 1];
+        i++; // consume value
+      } else {
+        console.error("Error: --valuesJson requires a JSON string value.");
+        process.exit(1);
+      }
+    } else if (arg === "--companyName") {
+      // Added companyName parsing
+      if (i + 1 < rawArgs.length && !rawArgs[i + 1].startsWith("--")) {
+        companyName = rawArgs[i + 1];
+        i++; // consume value
+      } else {
+        console.error("Error: --companyName requires a string value.");
+        process.exit(1);
+      }
+    } else {
+      console.warn(`Ignoring unknown argument or malformed pair: ${arg}`);
+    }
+  }
+
   const workDir = path.resolve(".");
 
   const projectSettings: automation.LocalProgramArgs = {
@@ -30,6 +74,61 @@ const main = async () => {
 
   console.log(`Successfully initialized stack: ${stack.name}`);
   console.log(`Working directory for Pulumi program: ${workDir}`);
+
+  // New block: Set configuration from JSON strings if provided
+  // This is placed after stack initialization and before other console logs or the main switch.
+  if (secretsJsonString) {
+    try {
+      JSON.parse(secretsJsonString); // Basic validation: ensure it's a parseable JSON string
+      await stack.setConfig("helmSecretsJson", {
+        value: secretsJsonString,
+        secret: true,
+      });
+      console.log(
+        "Set helmSecretsJson configuration for the stack (as secret)."
+      );
+    } catch (e: any) {
+      console.error(
+        "Failed to parse --secretsJson. Please provide a valid JSON string. Error:",
+        e.message
+      );
+      process.exit(1);
+    }
+  } else {
+    console.error(
+      "Error: --secretsJson is required. Please provide a valid JSON string."
+    );
+    process.exit(1);
+  }
+
+  if (valuesJsonString) {
+    try {
+      JSON.parse(valuesJsonString); // Basic validation: ensure it's a parseable JSON string
+      await stack.setConfig("helmValuesJson", { value: valuesJsonString });
+      console.log("Set helmValuesJson configuration for the stack.");
+    } catch (e: any) {
+      console.error(
+        "Failed to parse --valuesJson. Please provide a valid JSON string. Error:",
+        e.message
+      );
+      process.exit(1);
+    }
+  } // Removed else block that exited if valuesJsonString was not present, making it optional.
+
+  // Set companyName configuration if provided
+  if (companyName) {
+    await stack.setConfig("companyName", { value: companyName });
+    console.log("Set companyName configuration for the stack.");
+  } else {
+    // If not provided, we can choose to default it or make it required.
+    // For now, let's make it required for clarity in this refactoring.
+    // Later, we can decide if a default (like "iaas") is acceptable if not passed.
+    console.error(
+      "Error: --companyName is required. Please provide a company name string."
+    );
+    process.exit(1);
+  }
+
   console.log(
     "Executing Pulumi program located in the 'main' directory specified in Pulumi.yaml (e.g. ./dist) within the working directory."
   );

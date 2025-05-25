@@ -3,8 +3,6 @@ import * as gcpInfra from "./gcp-infra.js"; // Import GCP infra
 import * as pulumi from "@pulumi/pulumi";
 import * as k8s from "@pulumi/kubernetes";
 import * as path from "path";
-import * as fs from "fs";
-import * as yaml from "js-yaml";
 
 // Define interfaces for Kubernetes resource statuses for better type safety
 interface K8sLoadBalancerIngress {
@@ -28,6 +26,11 @@ const stack = pulumi.getStack();
 const generalConfig = new pulumi.Config();
 const cloudProvider = generalConfig.require("cloudProvider"); // 'aws' or 'gcp'
 
+// New: Get JSON strings from Pulumi config
+const helmSecretsJson = generalConfig.get("helmSecretsJson");
+const helmValuesJson = generalConfig.get("helmValuesJson");
+const companyName = generalConfig.require("companyName"); // Added: Get companyName from Pulumi config
+
 let cluster: any; // To hold cluster info from AWS or GCP
 let k8sProvider: k8s.Provider;
 let dependsOnResources: any[] = [];
@@ -41,7 +44,7 @@ let gcpZoneOutput: pulumi.Output<string> | undefined;
 let staticIpNameOutput: pulumi.Output<string> | undefined; // Declare staticIpNameOutput
 
 if (cloudProvider === "aws") {
-  cluster = awsInfra.createEksCluster("chimoney-rafiki-eks", stack);
+  cluster = awsInfra.createEksCluster(`${companyName}-rafiki-eks`, stack); // Modified: Use companyName
   k8sProvider = new k8s.Provider("k8s-provider-aws", {
     kubeconfig: cluster.kubeconfig,
   });
@@ -70,7 +73,7 @@ if (cloudProvider === "aws") {
   eksClusterNameOutput = cluster.clusterName;
   vpcIdOutput = cluster.vpcId;
 } else if (cloudProvider === "gcp") {
-  cluster = gcpInfra.createGkeCluster("chimoney-rafiki-gke", stack);
+  cluster = gcpInfra.createGkeCluster(`${companyName}-rafiki-gke`, stack); // Modified: Use companyName
   k8sProvider = new k8s.Provider("k8s-provider-gcp", {
     kubeconfig: cluster.kubeconfig,
   });
@@ -99,39 +102,86 @@ export const gcpZone = gcpZoneOutput;
 export const staticIpName = staticIpNameOutput; // Export staticIpNameOutput
 
 // Function to load and merge YAML files
-function loadAndMergeValues(filePaths: string[]): any {
+function loadAndMergeValues(
+  secretsJson?: string, // Changed order and made it optional for clarity
+  valuesJson?: string
+): any {
   let mergedValues = {};
-  for (const filePath of filePaths) {
-    if (fs.existsSync(filePath)) {
-      const fileContents = fs.readFileSync(filePath, "utf8");
-      const parsedValues = yaml.load(fileContents);
-      if (parsedValues && typeof parsedValues === "object") {
-        mergedValues = { ...mergedValues, ...parsedValues };
-      }
-    } else {
-      pulumi.log.warn(`Values file not found: ${filePath}`);
+
+  // Values are now primarily from JSON strings.
+  // File-based values are completely removed.
+
+  if (secretsJson) {
+    try {
+      const secrets = JSON.parse(secretsJson);
+      mergedValues = { ...mergedValues, ...secrets };
+      pulumi.log.info("Merged secrets from helmSecretsJson config.");
+    } catch (e: any) {
+      // Error handling for secretsJson parsing already in automation.ts
+      // This warning is a fallback, but ideally, automation.ts catches it first.
+      pulumi.log.error(
+        `Critical: Failed to parse helmSecretsJson in Pulumi program: ${e.message}. This should have been caught by the automation script.`
+      );
+      // Depending on policy, you might want to throw an error here to stop execution
+      // throw new Error(`Failed to parse helmSecretsJson: ${e.message}`);
     }
+  } else {
+    // This case should ideally not be reached if automation.ts enforces the argument.
+    pulumi.log.error(
+      "Critical: helmSecretsJson was not provided to the Pulumi program. The automation script should enforce this."
+    );
+    // throw new Error("helmSecretsJson is required and was not provided.");
   }
+
+  if (valuesJson) {
+    try {
+      const values = JSON.parse(valuesJson);
+      mergedValues = { ...mergedValues, ...values };
+      pulumi.log.info("Merged values from helmValuesJson config.");
+    } catch (e: any) {
+      // Similar to secretsJson, automation.ts should catch this.
+      pulumi.log.error(
+        `Critical: Failed to parse helmValuesJson in Pulumi program: ${e.message}. This should have been caught by the automation script.`
+      );
+      // throw new Error(`Failed to parse helmValuesJson: ${e.message}`);
+    }
+  } else {
+    // This case should ideally not be reached.
+    pulumi.log.error(
+      "Critical: helmValuesJson was not provided to the Pulumi program. The automation script should enforce this."
+    );
+    // throw new Error("helmValuesJson is required and was not provided.");
+  }
+
   return mergedValues;
 }
 
 const chartPathDir = path.join(__dirname, "../..", "helm-chart");
-const chartConfigPathDir = path.join(__dirname, "..", "chart-config");
 
-const valuesFilesPaths: string[] = [
-  path.join(chartConfigPathDir, "values.yaml"),
-  path.join(chartConfigPathDir, `values.${stack}.yaml`),
-];
+// Removed chartConfigPathDir and valuesFilesPaths as they are no longer used for loading values or secrets.
+// All configurations are expected to come from helmSecretsJson and helmValuesJson.
 
-if (stack === "prod") {
-  const prodSecretsFile = path.join(chartConfigPathDir, "secrets.prod.yaml");
-  valuesFilesPaths.push(prodSecretsFile);
-  pulumi.log.info(
-    "Attempting to include production secrets from secrets.prod.yaml"
+if (!helmSecretsJson) {
+  // This log is more of a safeguard; automation.ts should prevent this state.
+  pulumi.log.error(
+    "Error: helmSecretsJson is missing. It must be provided via Pulumi config by the automation script."
   );
+  // Optionally, throw an error to halt deployment if essential secrets are missing
+  // throw new Error("helmSecretsJson is required and was not set in Pulumi config.");
 }
 
-const mergedChartValues = loadAndMergeValues(valuesFilesPaths);
+if (!helmValuesJson) {
+  // Similar safeguard for helmValuesJson
+  pulumi.log.error(
+    "Error: helmValuesJson is missing. It must be provided via Pulumi config by the automation script."
+  );
+  // Optionally, throw an error
+  // throw new Error("helmValuesJson is required and was not set in Pulumi config.");
+}
+
+// Pass only the JSON strings to loadAndMergeValues.
+// File paths array is removed as it's no longer used.
+const mergedChartValues = loadAndMergeValues(helmSecretsJson, helmValuesJson);
 
 if (cloudProvider === "gcp") {
   if (!mergedChartValues.ingress) {
@@ -147,11 +197,14 @@ if (cloudProvider === "gcp") {
   pulumi.log.info(
     "For GCP/GKE, ensure your Helm chart's Ingress and Service resources are configured appropriately."
   );
+
+  // Add companyName to mergedChartValues for Helm chart
+  mergedChartValues.companyName = companyName;
 }
 
-const helmReleaseName = "chimoney-rafiki"; // Define the Helm release name
+const helmReleaseName = `${companyName}-rafiki`; // Modified: Use companyName
 
-const chimoneyRafikiChart = new k8s.helm.v3.Chart(
+const iaasRafikiChart = new k8s.helm.v3.Chart(
   helmReleaseName, // Use the defined release name
   {
     path: chartPathDir,
@@ -161,7 +214,7 @@ const chimoneyRafikiChart = new k8s.helm.v3.Chart(
 );
 
 pulumi.log.info(
-  "Chimoney Rafiki Helm chart deployment initiated. Check Pulumi logs for status."
+  `${companyName} Rafiki Helm chart deployment initiated. Check Pulumi logs for status.` // Modified: Use companyName
 );
 
 // Construct resource names based on Helm release name and chart resource names
@@ -174,7 +227,7 @@ const ingressResourceName = "rafiki-ingress";
 // so the K8s service name will be `${helmReleaseName}-nginx`.
 const nginxServicePlainName = `${helmReleaseName}-nginx`; // Changed from pulumi.interpolate
 
-export const ingressHostname = chimoneyRafikiChart
+export const ingressHostname = iaasRafikiChart
   .getResourceProperty(
     "networking.k8s.io/v1/Ingress",
     ingressResourceName, // Use constructed name
@@ -196,7 +249,7 @@ export const ingressHostname = chimoneyRafikiChart
     return "Ingress status not available yet.";
   });
 
-export const nginxLoadBalancer = chimoneyRafikiChart
+export const nginxLoadBalancer = iaasRafikiChart
   .getResourceProperty(
     "v1/Service",
     nginxServicePlainName, // Use the new plain string variable

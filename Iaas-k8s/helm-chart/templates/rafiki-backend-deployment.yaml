@@ -2,20 +2,20 @@
 apiVersion: {{ include "deployment.apiVersion" . }}
 kind: Deployment
 metadata:
-  name: {{ include "chimoney-rafiki.componentFullname" (dict "componentName" .Values.rafikiBackend.name "context" .) }}
+  name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.rafikiBackend.name "context" .) }}
   labels:
-    {{- include "chimoney-rafiki.labels" . | nindent 4 }}
+    {{- include "iaas-rafiki.labels" . | nindent 4 }}
     app.kubernetes.io/component: {{ .Values.rafikiBackend.name }}
 spec:
   replicas: {{ .Values.rafikiBackend.replicaCount }}
   selector:
     matchLabels:
-      {{- include "chimoney-rafiki.selectorLabels" . | nindent 6 }}
+      {{- include "iaas-rafiki.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: {{ .Values.rafikiBackend.name }}
   template:
     metadata:
       labels:
-        {{- include "chimoney-rafiki.selectorLabels" . | nindent 8 }}
+        {{- include "iaas-rafiki.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: {{ .Values.rafikiBackend.name }}
     spec:
       {{- with .Values.imagePullSecrets }}

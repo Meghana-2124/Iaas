@@ -1,4 +1,4 @@
-# Development specific values for chimoney-rafiki chart.
+# Development specific values for {{ .Values.companyName }}-rafiki chart.
 # These values override the defaults in values.yaml.
 
 global:
@@ -17,8 +17,8 @@ rafikiBackend:
 nginx:
   replicaCount: 1
   config:
-    serverNameIlp: "ilp-sandbox.chimoney.com"
-    serverNameAuth: "auth-ilp-sandbox.chimoney.io"
+    serverNameIlp: "ilp-sandbox.{{ .Values.companyName }}.com"
+    serverNameAuth: "auth-ilp-sandbox.{{ .Values.companyName }}.io"
     graphqlAllowedIps: # More permissive for dev if needed
       - "35.160.120.126"
       - "44.233.151.27"
@@ -28,8 +28,8 @@ nginx:
 ingress:
   hosts:
     ilp:
-      host: ilp-sandbox.chimoney.com
+      host: ilp-sandbox.{{ .Values.companyName }}.com
     auth:
-      host: auth-ilp-sandbox.chimoney.io
+      host: auth-ilp-sandbox.{{ .Values.companyName }}.io
   # annotations:
   # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:your-region:your-account-id:certificate/dev-certificate-id

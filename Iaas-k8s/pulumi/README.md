@@ -1,306 +1,196 @@
-# Pulumi AWS Deployment Guide
+# Pulumi Iaas-k8s Deployment Guide
 
-This guide provides instructions on how to authenticate Pulumi with AWS using IAM credentials and how to deploy this project.
+This guide provides instructions on how to authenticate Pulumi with AWS or GCP and how to deploy this project, which provisions Kubernetes infrastructure (EKS or GKE) and deploys the Rafiki application suite using a Helm chart. The deployment process is managed by an Automation API script (`automation.ts`) and utilizes a `companyName` configuration for resource naming.
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed:
-
 - [Pulumi CLI](https://www.pulumi.com/docs/get-started/install/)
-- [AWS CLI](https://aws.amazon.com/cli/)
+- [AWS CLI](https://aws.amazon.com/cli/) (if deploying to AWS)
+- [Google Cloud SDK (`gcloud`)](https://cloud.google.com/sdk/install) (if deploying to GCP)
 - [Node.js and npm](https://nodejs.org/en/download/)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) (for interacting with the EKS cluster)
-- [Helm](https://helm.sh/docs/intro/install/) (if you need to inspect or manually manage Helm charts)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
+- [Helm CLI](https://helm.sh/docs/intro/install/) (for chart inspection, not direct deployment by this process)
 
-## 1. Authenticating Pulumi
+## 1. Authentication
 
-### 1.1. Authenticating Pulumi with AWS using IAM Credentials
+### 1.1. Authenticating Pulumi with AWS
 
-Pulumi uses the AWS SDK to interact with your AWS account. The recommended way to authenticate is by configuring the AWS CLI with IAM user credentials that have the necessary permissions.
-
-#### Step 1: Create an IAM User (if you don't have one)
-
-1.  Navigate to the [IAM console](https://console.aws.amazon.com/iam/) in AWS.
-2.  Go to **Users** and click **Add users**.
-3.  Enter a **User name** (e.g., `pulumi-deployer`).
-4.  Select **Access key - Programmatic access** as the AWS credential type.
-5.  Click **Next: Permissions**.
-6.  Attach appropriate permissions. For deploying this project, you'll need permissions for EKS, EC2 (for VPCs and instances), IAM (for roles), S3 (for Pulumi state), and potentially other services depending on your specific AWS setup. It's best to follow the principle of least privilege. A starting point could be `AdministratorAccess` for simplicity during initial setup, but refine this for production environments.
-7.  Click **Next: Tags** (optional), then **Next: Review**.
-8.  Click **Create user**.
-9.  **Important**: Download the `.csv` file or copy the **Access key ID** and **Secret access key**. You will not be able to access the secret key again after this step.
-
-#### Step 2: Configure AWS CLI Credentials
-
-Open your terminal and run:
+Follow standard AWS CLI configuration using IAM user credentials with necessary permissions for EKS, EC2, IAM, S3, etc.
 
 ```bash
 aws configure
 ```
 
-Enter the following when prompted:
-
-- **AWS Access Key ID**: `[YOUR_ACCESS_KEY_ID]` (from the IAM user created/used)
-- **AWS Secret Access Key**: `[YOUR_SECRET_ACCESS_KEY]` (from the IAM user created/used)
-- **Default region name**: `[YOUR_AWS_REGION]` (e.g., `us-east-1`, `eu-west-2`). This should match the region you intend to deploy your resources in.
-- **Default output format**: `json` (or your preferred format)
-
-This will create or update the `~/.aws/credentials` and `~/.aws/config` files. Pulumi will automatically use these credentials.
-
-#### Step 3: (Optional) Configure a Specific AWS Profile
-
-If you use multiple AWS profiles, you can configure Pulumi to use a specific profile by setting the `AWS_PROFILE` environment variable:
+Pulumi will use these default credentials. For specific profiles:
 
 ```bash
 export AWS_PROFILE=your-profile-name
-```
-
-Or, you can set it when running Pulumi commands:
-
-```bash
-AWS_PROFILE=your-profile-name pulumi up
+# Then run Pulumi commands
 ```
 
 ### 1.2. Authenticating Pulumi with Google Cloud (GCP)
 
-Pulumi uses the Google Cloud SDK to interact with your GCP account. The recommended way to authenticate is by using a service account key or by logging in with the `gcloud` CLI.
+**Recommended: Service Account Key**
 
-#### Step 1: Create a Service Account and Key (Recommended for CI/CD)
+1.  Create a GCP Service Account with roles like "Kubernetes Engine Admin", "Service Account User", "Compute Admin", "Storage Admin".
+2.  Download the JSON key file.
+3.  Set the environment variable:
+    ```bash
+    export GOOGLE_CREDENTIALS=/path/to/your-service-account-key.json
+    ```
 
-1.  Navigate to the [IAM & Admin console](https://console.cloud.google.com/iam-admin/serviceaccounts) in GCP.
-2.  Select your project.
-3.  Click **+ CREATE SERVICE ACCOUNT**.
-4.  Enter a **Service account name** (e.g., `pulumi-deployer`).
-5.  Grant necessary roles. For GKE, common roles include "Kubernetes Engine Admin" (`roles/container.admin`) and "Service Account User" (`roles/iam.serviceAccountUser`). For managing other resources, add roles like "Compute Admin", "Storage Admin", etc. Follow the principle of least privilege.
-6.  Click **DONE**.
-7.  Find the created service account, click the three dots under **Actions**, and select **Manage keys**.
-8.  Click **ADD KEY** -> **Create new key**.
-9.  Choose **JSON** as the key type and click **CREATE**. A JSON key file will be downloaded.
-
-#### Step 2: Set Environment Variable for Pulumi
-
-Set the `GOOGLE_CREDENTIALS` environment variable to the path of the downloaded JSON key file:
-
-```bash
-export GOOGLE_CREDENTIALS=/path/to/your-service-account-key.json
-```
-
-Pulumi will automatically use these credentials.
-
-#### Alternative: Using `gcloud` Application Default Credentials (ADC)
-
-If you have the `gcloud` CLI installed and configured, you can log in:
+**Alternative: `gcloud` Application Default Credentials (ADC)**
 
 ```bash
 gcloud auth application-default login
 ```
 
-Pulumi will automatically pick up these credentials. This is often simpler for local development.
+Pulumi will automatically pick up these credentials.
 
 ## 2. Deploying the Project using Pulumi Automation API
 
-This project uses Pulumi with the Automation API to define and deploy cloud infrastructure (AWS EKS or GCP GKE) and associated Kubernetes resources via a Helm chart. The Automation API script (`automation.ts`) handles stack operations.
+This project uses `automation.ts` to manage deployments. This script orchestrates Pulumi stack operations and handles the passing of Helm chart configurations.
 
 ### Step 1: Install Project Dependencies
 
-Navigate to the `Iaas-k8s/aws/pulumi` directory in your terminal:
+Navigate to the `Iaas-k8s/pulumi` directory:
 
 ```bash
-cd /Users/mide/Documents/work/Iaas/Iaas-k8s/aws/pulumi
-```
-
-Install the Node.js dependencies:
-
-```bash
+cd /Users/mide/Documents/work/Iaas/Iaas-k8s/pulumi
 npm install
-# or
-# yarn install
 ```
 
 ### Step 2: Build the TypeScript Code
 
-Compile the TypeScript files (including `index.ts`, `aws-infra.ts`, and `automation.ts`) to JavaScript:
+Compile TypeScript files (`index.ts`, `aws-infra.ts`, `gcp-infra.ts`, `automation.ts`):
 
 ```bash
 npm run build
-# or
-# yarn build
 ```
 
-This will create a `dist` directory with the compiled JavaScript files.
+This creates a `dist` directory with compiled JavaScript.
 
 ### Step 3: Login to Pulumi
-
-If you haven't already, log in to the Pulumi service. This is where your stack's state will be stored. You can use the default Pulumi SaaS backend or configure an alternative [backend](https://www.pulumi.com/docs/concepts/state/).
 
 ```bash
 pulumi login
 ```
 
-_Note: While the Automation API script handles deployments, `pulumi login` and `pulumi stack init/select` (for the very first time) are still typically done via the Pulumi CLI._
+### Step 4: Configure Pulumi Stack and Project Settings
 
-### Step 4: Create or Select a Pulumi Stack (Initial Setup)
+The `automation.ts` script will prompt you to select or create a stack (e.g., `dev`, `prod`). Stack configuration is stored in `Pulumi.<stack-name>.yaml`.
 
-A Pulumi stack is an isolated instance of your Pulumi program. Common practice is to have stacks for different environments (e.g., `dev`, `staging`, `prod`).
+**Crucial Configurations (set via `pulumi config set` or directly in `Pulumi.<stack-name>.yaml`):**
 
-If you are setting up a stack for the first time with the Automation API, you might still need the CLI to initialize it or ensure it's selected if the Automation API script doesn't explicitly handle `pulumi stack init` in a way that creates the `Pulumi.<stack-name>.yaml` configuration file. However, the provided `automation.ts` script uses `LocalWorkspace.createOrSelectStack`, which should handle this.
+1.  **Cloud Provider**: Determines whether to deploy to AWS or GCP.
 
-To create a new stack (e.g., `dev`) if it doesn't exist, or select it if it does:
-The `automation.ts` script will handle this. For example, when you run `npm run pulumi up dev`, it will use or create the `dev` stack.
+    ```bash
+    pulumi config set iaas:cloudProvider <aws|gcp> --stack <stack-name>
+    ```
 
-The current Pulumi code is designed to use different configurations based on the stack name (`dev` or `prod`) and the chosen cloud provider.
+2.  **Company Name**: Used for naming resources (e.g., EKS/GKE cluster, Helm release).
 
-### Step 5: Configure Stack-Specific Values
+    ```bash
+    pulumi config set companyName yourcompanyname --stack <stack-name>
+    ```
 
-This project loads Helm values from `values.yaml` and merges them with environment-specific files like `values.dev.yaml` or `values.prod.yaml`. Additionally, for production, it attempts to load `secrets.prod.yaml`.
+3.  **Cloud-Specific Settings**:
 
-Ensure these files are correctly configured for your deployment:
+    - **AWS**:
+      ```bash
+      pulumi config set aws:region <your-aws-region> --stack <stack-name>
+      ```
+    - **GCP**:
+      ```bash
+      pulumi config set gcp:project <your-gcp-project-id> --stack <stack-name>
+      pulumi config set gcp:region <your-gcp-region> --stack <stack-name> # e.g., us-central1
+      pulumi config set gcp:zone <your-gcp-zone> --stack <stack-name>     # e.g., us-central1-a
+      ```
 
-- `../helm-chart/values.yaml` (base values)
-- `../helm-chart/values.dev.yaml` (for `dev` stack)
-- `../helm-chart/values.prod.yaml` (for `prod` stack)
-- `../helm-chart/secrets.prod.yaml` (for production secrets - **ensure this file is in `.gitignore` and managed securely**)
+4.  **Helm Configuration (Handled by `automation.ts`)**:
+    The `automation.ts` script is responsible for reading Helm values and secrets from YAML files located in `../<cloudProvider>/chart-config/` (e.g., `../aws/chart-config/values.dev.yaml`, `../gcp/chart-config/secrets.prod.yaml`). It then converts these to JSON strings and sets them as `helmValuesJson` and `helmSecretsJson` in the Pulumi stack configuration for the `pulumi/index.ts` program to consume.
 
-The Pulumi configuration files (`Pulumi.dev.yaml`, `Pulumi.prod.yaml`, `Pulumi.yaml`) contain stack-specific settings.
+    **You do not set `helmValuesJson` or `helmSecretsJson` directly using `pulumi config set`.** Instead, ensure the source YAML files are correctly placed and populated in the respective `chart-config` directories:
 
-**Crucially, you must set the `iaas:cloudProvider` and GCP-specific settings in your `Pulumi.<stack-name>.yaml` file.**
+    - `Iaas-k8s/aws/chart-config/values.<env>.yaml`
+    - `Iaas-k8s/aws/chart-config/secrets.<env>.yaml` (ensure this is in `.gitignore`)
+    - `Iaas-k8s/gcp/chart-config/values.<env>.yaml`
+    - `Iaas-k8s/gcp/chart-config/secrets.<env>.yaml` (ensure this is in `.gitignore`)
 
-Example for `Pulumi.dev.yaml` to deploy to **AWS**:
+    The base Helm values are typically in `Iaas-k8s/helm-chart/values.yaml` and environment-specific overrides in `Iaas-k8s/helm-chart/values.<env>.yaml`. The `automation.ts` script merges these with the cloud-specific files.
 
-```yaml
-config:
-  aws:region: us-east-1
-  iaas:cloudProvider: aws
-```
+### Step 5: Preview the Deployment
 
-Example for `Pulumi.dev.yaml` to deploy to **GCP**:
-
-```yaml
-config:
-  iaas:cloudProvider: gcp
-  gcp:project: YOUR_GCP_PROJECT_ID # Replace with your GCP Project ID
-  gcp:region: us-central1 # Optional: Replace with your desired GCP region
-  gcp:zone: us-central1-a # Optional: Replace with your desired GCP zone
-  # aws:region: us-east-1 # This would be ignored if cloudProvider is gcp
-```
-
-You can set these configuration values using the Pulumi CLI if needed:
-
-```bash
-# For AWS
-pulumi config set aws:region us-west-2 --stack dev
-pulumi config set iaas:cloudProvider aws --stack dev
-
-# For GCP
-pulumi config set iaas:cloudProvider gcp --stack dev
-pulumi config set gcp:project YOUR_GCP_PROJECT_ID --stack dev
-pulumi config set gcp:region us-central1 --stack dev # Optional
-pulumi config set gcp:zone us-central1-a --stack dev   # Optional
-```
-
-### Step 6: Preview the Deployment
-
-Before making any changes, preview the resources Pulumi will create or modify using the Automation API script:
+Run the `preview` command using the `automation.ts` script. It will prompt for the stack name if not provided and the environment (dev/prod).
 
 ```bash
 npm run pulumi preview <stack-name>
-# e.g., npm run pulumi preview dev
+# Example: npm run pulumi preview dev
 ```
+
+This command will:
+
+1.  Invoke `automation.ts`.
+2.  Prompt for environment (dev/prod).
+3.  Read appropriate Helm values/secrets from `../<cloudProvider>/chart-config/` and `../../helm-chart/`.
+4.  Convert them to JSON strings and set `helmValuesJson` and `helmSecretsJson` in Pulumi config.
+5.  Run `pulumi preview` for the selected stack.
 
 Review the output carefully.
 
-### Step 7: Deploy the Infrastructure
+### Step 6: Deploy the Infrastructure
 
-To deploy the infrastructure using the Automation API script:
+Run the `up` command using the `automation.ts` script.
 
 ```bash
 npm run pulumi up <stack-name>
-# e.g., npm run pulumi up dev
+# Example: npm run pulumi up dev
 ```
 
-The script will show you a preview of the changes and ask for confirmation before proceeding if the underlying Pulumi program is interactive (which `stack.up()` can be, though the current script logs progress).
+This command follows a similar process to `preview` but proceeds with the actual deployment (`pulumi up`).
 
-This process can take several minutes, especially when creating a Kubernetes cluster for the first time.
+### Step 7: Accessing the Cluster and Application
 
-### Step 8: Accessing the Cluster
+Once deployment is complete, `automation.ts` will display stack outputs.
 
-Once the deployment is complete, the Automation API script will output the `kubeconfig` among other outputs.
+- **`kubeconfig`**: Content to access your Kubernetes cluster. The script provides an `echo` command to save it.
+  ```bash
+  # Example for saving kubeconfig
+  # echo '<kubeconfig_content_from_output>' > kubeconfig-<stack-name>.yaml
+  # export KUBECONFIG=$(pwd)/kubeconfig-<stack-name>.yaml
+  # kubectl get nodes
+  ```
+- **`ingressHostname`**: The hostname or IP of the Ingress controller to access your application.
+- **Cloud Specific Outputs**:
+  - AWS: `eksClusterName`, `vpcId`.
+  - GCP: `gkeClusterName`, `gcpProject`, `gcpZone`, `staticIpName` (name of the reserved static IP for Ingress).
 
-**For AWS EKS:**
-The `automation.ts` script includes instructions on how to save and use the `kubeconfig` from the output of the `up` command. It will look something like this:
+### Step 8: Accessing Exported Outputs Manually
 
-```
---- To configure kubectl for EKS ---
-1. Save the kubeconfig:
-   echo '<kubeconfig_content>' > kubeconfig-dev.yaml
-2. Set KUBECONFIG environment variable:
-   export KUBECONFIG=$(pwd)/kubeconfig-dev.yaml
-3. Test connection:
-   kubectl get nodes
-```
-
-**For GCP GKE:**
-The output `kubeconfig` will also be printed. Save it to a file (e.g., `kubeconfig-gcp-dev.yaml`).
-The GKE kubeconfig generated by Pulumi uses `gcloud config config-helper` for authentication. Ensure you have `gcloud` CLI installed and authenticated (e.g., via `gcloud auth login` or `gcloud auth activate-service-account`).
-
-```bash
-# Example for GKE:
-# 1. Save the kubeconfig output to a file, e.g., kubeconfig-gcp-dev.yaml
-#    (The automation script will print the echo command for this)
-# 2. Set KUBECONFIG environment variable:
-export KUBECONFIG=$(pwd)/kubeconfig-gcp-dev.yaml
-# 3. Test connection:
-kubectl get nodes
-```
-
-Follow these instructions in your terminal.
-
-### Step 9: Accessing Exported Outputs
-
-The Pulumi program exports several outputs. You can view these using the Automation API script:
+If you need to view outputs later:
 
 ```bash
 npm run pulumi outputs <stack-name>
-# e.g., npm run pulumi outputs dev
+# Example: npm run pulumi outputs dev
 ```
-
-This will display all stack outputs, including:
-
-- `kubeconfig`: The kubeconfig file content for accessing the cluster.
-- `ingressHostname`: The hostname or IP of the Ingress.
-- `nginxLoadBalancer`: The hostname or IP of the Nginx service (if applicable).
-- For AWS: `eksClusterName`, `vpcId`
-- For GCP: `gkeClusterName`, `gcpProject`, `gcpZone`
 
 ## 3. Updating the Deployment
 
-If you make changes to the Pulumi code (`index.ts`, `aws-infra.ts`) or the Helm chart:
-
-1.  Navigate to the `Iaas-k8s/aws/pulumi` directory.
-2.  Run `npm install` (or `yarn install`) if you've updated Node.js dependencies.
-3.  Rebuild the TypeScript code:
-    ```bash
-    npm run build
-    # or
-    # yarn build
-    ```
-4.  Run `npm run pulumi preview <stack-name>` to see the planned changes.
-5.  Run `npm run pulumi up <stack-name>` to apply the changes.
+1.  Modify Pulumi code (`*.ts` files in `pulumi/`) or Helm chart values/templates (`helm-chart/` or `aws/chart-config/`, `gcp/chart-config/`).
+2.  Rebuild TypeScript: `npm run build` (in `pulumi/` directory).
+3.  Preview changes: `npm run pulumi preview <stack-name>`.
+4.  Apply changes: `npm run pulumi up <stack-name>`.
 
 ## 4. Destroying the Infrastructure
 
-To tear down all resources managed by your Pulumi stack using the Automation API script:
-
-**Warning**: This action is irreversible and will delete all cloud resources created by this stack (EKS/GKE cluster, EC2 instances/VMs, Load Balancers, etc.).
+**Warning**: This is irreversible and deletes all cloud resources managed by the stack.
 
 ```bash
 npm run pulumi destroy <stack-name>
-# e.g., npm run pulumi destroy dev
+# Example: npm run pulumi destroy dev
 ```
 
-The script will ask for confirmation.
-
-To remove the stack itself (after destroying its resources), you would typically use the Pulumi CLI:
+To remove the stack itself from Pulumi's backend (after destroying resources):
 
 ```bash
 pulumi stack rm <stack-name>
@@ -308,19 +198,31 @@ pulumi stack rm <stack-name>
 
 ## 5. Other Operations
 
-The Automation API script also supports refreshing the stack state:
+Refresh stack state:
 
 ```bash
 npm run pulumi refresh <stack-name>
-# e.g., npm run pulumi refresh dev
+# Example: npm run pulumi refresh dev
 ```
+
+## `automation.ts` Script Details
+
+The `automation.ts` script (run via `npm run pulumi -- <command> <stack>`) is central to the deployment workflow. Its key responsibilities include:
+
+- Prompting for stack name and environment (dev/prod).
+- Determining the cloud provider from Pulumi config (`iaas:cloudProvider`).
+- Constructing file paths to Helm values and secrets YAML files based on cloud provider and environment (e.g., `../aws/chart-config/values.dev.yaml`, `../../helm-chart/values.dev.yaml`).
+- Reading and merging these YAML files in a specific order of precedence.
+- Converting the merged Helm values and secrets into JSON strings.
+- Setting these JSON strings as `helmValuesJson` and `helmSecretsJson` in the Pulumi configuration for the target stack.
+- Executing the requested Pulumi command (e.g., `preview`, `up`, `destroy`, `outputs`, `refresh`).
+
+This approach ensures that the core Pulumi program (`pulumi/index.ts`) receives its Helm configurations dynamically and securely via Pulumi config, rather than reading files directly, making the Pulumi program itself more portable and testable.
 
 ## Troubleshooting
 
-- **Permissions Issues**: If `pulumi up` fails with permission errors, ensure the IAM user (AWS) or Service Account (GCP) configured has the necessary permissions for all services Pulumi is trying to manage.
-- **Helm Chart Issues**: Check the Helm chart templates and values files for correctness. You can use `helm template . --values values.dev.yaml > rendered.yaml` (from within the `helm-chart` directory) to debug the rendered Kubernetes manifests.
-- **Pulumi Logs**: Check the Pulumi logs for detailed error messages during `pulumi up` or `preview`.
-- **EKS/GKE Cluster Creation Time**: Cluster creation can take 15-25 minutes. Be patient.
-- **AWS Load Balancer Controller / GCP Ingress**:
-  - For AWS, ensure the AWS Load Balancer Controller deploys successfully. Check its logs in the `kube-system` namespace.
-  - For GCP, GKE uses `ingress-gce` by default for Ingress resources and Services of type LoadBalancer. Check the status of your Ingress/Service resources: `kubectl describe ingress <ingress-name>` or `kubectl describe service <service-name>`.
+- **Permissions Issues**: Ensure IAM user (AWS) or Service Account (GCP) has necessary permissions.
+- **Helm Chart Issues**: Check Helm templates and values. The `automation.ts` script logs the paths of files it attempts to load.
+- **Pulumi Logs**: Detailed error messages are available in Pulumi command output.
+- **`companyName` not set**: If you see errors related to `companyName` being undefined in `Chart.yaml` or resource names, ensure `pulumi config set companyName yourcompanyname` is run for the stack.
+- **Secrets Files**: Ensure `secrets.<env>.yaml` files are present in the correct `../<cloudProvider>/chart-config/` directory and are correctly formatted. These files are critical and **must be gitignored**.

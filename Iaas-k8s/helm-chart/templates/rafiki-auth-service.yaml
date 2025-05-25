@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "chimoney-rafiki.componentFullname" (dict "componentName" .Values.rafikiAuth.name "context" .) }}
+  name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.rafikiAuth.name "context" .) }}
   labels:
-    {{- include "chimoney-rafiki.labels" . | nindent 4 }}
+    {{- include "iaas-rafiki.labels" . | nindent 4 }}
     app.kubernetes.io/component: {{ .Values.rafikiAuth.name }}
 spec:
   type: {{ .Values.rafikiAuth.service.type }}
@@ -22,6 +22,6 @@ spec:
       protocol: TCP
       name: http-admin
   selector:
-    {{- include "chimoney-rafiki.selectorLabels" . | nindent 4 }}
+    {{- include "iaas-rafiki.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: {{ .Values.rafikiAuth.name }}
 {{- end }}

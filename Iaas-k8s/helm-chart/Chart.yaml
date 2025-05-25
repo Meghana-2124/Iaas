@@ -1,6 +1,6 @@
 apiVersion: v2
-name: chimoney-rafiki
-description: A Helm chart for deploying Chimoney Rafiki application suite
+name: "{{ .Values.companyName }}-rafiki" # Modified to use companyName
+description: A Helm chart for deploying {{ .Values.companyName }} Rafiki application suite # Modified to use companyName
 type: application
 version: 0.1.0
 appVersion: "1.0.0" # Corresponds to the application version being deployed

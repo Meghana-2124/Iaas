@@ -2,20 +2,20 @@
 apiVersion: {{ include "deployment.apiVersion" . }}
 kind: Deployment
 metadata:
-  name: {{ include "chimoney-rafiki.componentFullname" (dict "componentName" .Values.nginx.name "context" .) }}
+  name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.nginx.name "context" .) }}
   labels:
-    {{- include "chimoney-rafiki.labels" . | nindent 4 }}
+    {{- include "iaas-rafiki.labels" . | nindent 4 }}
     app.kubernetes.io/component: {{ .Values.nginx.name }}
 spec:
   replicas: {{ .Values.nginx.replicaCount }}
   selector:
     matchLabels:
-      {{- include "chimoney-rafiki.selectorLabels" . | nindent 6 }}
+      {{- include "iaas-rafiki.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: {{ .Values.nginx.name }}
   template:
     metadata:
       labels:
-        {{- include "chimoney-rafiki.selectorLabels" . | nindent 8 }}
+        {{- include "iaas-rafiki.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: {{ .Values.nginx.name }}
     spec:
       {{- with .Values.imagePullSecrets }}
@@ -38,6 +38,6 @@ spec:
       volumes:
         - name: nginx-config-volume
           configMap:
-            name: {{ include "chimoney-rafiki.componentFullname" (dict "componentName" .Values.nginx.configMap.name "context" .) }}
+            name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.nginx.configMap.name "context" .) }}
       restartPolicy: Always
 {{- end }}

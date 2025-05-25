@@ -1,4 +1,4 @@
-# Development specific values for chimoney-rafiki chart.
+# Development specific values for iaas-rafiki chart.
 # These values override the defaults in values.yaml.
 
 global:

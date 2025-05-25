@@ -4,7 +4,7 @@ kind: Ingress
 metadata:
   name: {{ .Values.ingress.name }}
   labels:
-    {{- include "chimoney-rafiki.labels" . | nindent 4 }}
+    {{- include "iaas-rafiki.labels" . | nindent 4 }}
   annotations:
     kubernetes.io/ingress.class: {{ .Values.ingress.className | quote }}
     {{- with .Values.ingress.annotations }}
@@ -39,7 +39,7 @@ spec:
             {{- end }}
             backend:
               service:
-                name: {{ include "chimoney-rafiki.componentFullname" (dict "componentName" (printf "%s" .serviceNameSuffix) "context" $) }}
+                name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" (printf "%s" .serviceNameSuffix) "context" $) }}
                 port:
                   number: {{ .servicePort }}
           {{- end }}
@@ -61,7 +61,7 @@ spec:
             {{- end }}
             backend:
               service:
-                name: {{ include "chimoney-rafiki.componentFullname" (dict "componentName" (printf "%s" .serviceNameSuffix) "context" $) }}
+                name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" (printf "%s" .serviceNameSuffix) "context" $) }}
                 port:
                   number: {{ .servicePort }}
           {{- end }}
@@ -69,7 +69,7 @@ spec:
   {{- if .Values.ingress.defaultBackend }}
   defaultBackend:
     service:
-      name: {{ include "chimoney-rafiki.componentFullname" (dict "componentName" .Values.ingress.defaultBackend.service.name "context" $) }}
+      name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.ingress.defaultBackend.service.name "context" $) }}
       port:
         number: {{ .Values.ingress.defaultBackend.service.port }}
   {{- end }}

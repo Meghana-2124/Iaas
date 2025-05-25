@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "chimoney-rafiki.name" -}}
+{{- define "iaas-rafiki.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "chimoney-rafiki.fullname" -}}
+{{- define "iaas-rafiki.fullname" -}}
 {{- if .Values.fullnameOverride -}}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
 {{- else -}}
@@ -26,16 +26,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "chimoney-rafiki.chart" -}}
+{{- define "iaas-rafiki.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
 Common labels
 */}}
-{{- define "chimoney-rafiki.labels" -}}
-helm.sh/chart: {{ include "chimoney-rafiki.chart" . }}
-{{ include "chimoney-rafiki.selectorLabels" . }}
+{{- define "iaas-rafiki.labels" -}}
+helm.sh/chart: {{ include "iaas-rafiki.chart" . }}
+{{ include "iaas-rafiki.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -45,17 +45,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "chimoney-rafiki.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "chimoney-rafiki.name" . }}
+{{- define "iaas-rafiki.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "iaas-rafiki.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{/*
 Create the name for a component service account.
 */}}
-{{- define "chimoney-rafiki.serviceAccountName" -}}
+{{- define "iaas-rafiki.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create -}}
-    {{ default (include "chimoney-rafiki.fullname" .) .Values.serviceAccount.name }}
+    {{ default (include "iaas-rafiki.fullname" .) .Values.serviceAccount.name }}
 {{- else -}}
     {{ default "default" .Values.serviceAccount.name }}
 {{- end -}}
@@ -87,8 +87,8 @@ extensions/v1beta1
 
 {{/*
 Construct service name for components
-Usage: {{ include "chimoney-rafiki.componentFullname" (dict "componentName" .Values.rafikiAuth.name "context" $) }}
+Usage: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.rafikiAuth.name "context" $) }}
 */}}
-{{- define "chimoney-rafiki.componentFullname" -}}
+{{- define "iaas-rafiki.componentFullname" -}}
 {{- printf "%s-%s" .context.Release.Name .componentName | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
