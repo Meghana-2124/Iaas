@@ -42,17 +42,17 @@ Iaas/
    npm run build
    ```
 
-4. **Deploy infrastructure (with fully automated config setup)**:
+4. **Deploy infrastructure (with fully automated config setup, using JSON files)**:
    ```bash
    npm run pulumi -- up dev \
      --companyName mycompany \
-     --secretsJson '{"dbPassword":"secret"}' \
-     --valuesJson '{"replicas":3}' \
+     --secretsFile ./config/secrets.json \
+     --valuesFile ./config/values.json \
      --cloudProvider aws \
-     --cloudConfig '{"region":"us-east-1"}' \
+     --cloudConfigFile ./config/cloudConfig.aws.json \
      --autoSetupConfig
    ```
-   > You can use `--cloudProvider`, `--cloudConfig`, and `--autoSetupConfig` to skip all manual `pulumi config set ...` steps. See the Pulumi README for details.
+   > Use `--secretsFile`, `--valuesFile`, and `--cloudConfigFile` to provide all configuration as JSON files. This is the recommended and most secure approach. See the Pulumi README for full details and examples.
 
 ## Features
 
@@ -63,8 +63,8 @@ Iaas/
 - ✅ **Progress monitoring and logging**
 - ✅ **Configuration validation**
 - ✅ **Automatic rollback capabilities**
-- ✅ **Fully automated Pulumi config setup via CLI**
+- ✅ **Fully automated Pulumi config setup via CLI and JSON files**
 
 For detailed usage instructions, see [Iaas-k8s/README.md](./Iaas-k8s/README.md).
 
-For Pulumi-specific documentation, see [Iaas-k8s/pulumi/README.md](./Iaas-k8s/pulumi/README.md).
+For Pulumi-specific documentation and all CLI/file-based config options, see [Iaas-k8s/pulumi/README.md](./Iaas-k8s/pulumi/README.md).
