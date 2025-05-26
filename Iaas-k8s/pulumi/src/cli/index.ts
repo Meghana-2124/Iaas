@@ -30,6 +30,7 @@ async function main() {
           .positional("stackName", {
             describe: "Pulumi stack name",
             type: "string",
+            demandOption: true,
           })
           .option("companyName", {
             describe: "Company name for resource naming",
@@ -39,7 +40,6 @@ async function main() {
           .option("secretsJson", {
             describe: "JSON string of secrets",
             type: "string",
-            demandOption: true,
           })
           .option("valuesJson", {
             describe: "JSON string of values",
@@ -49,6 +49,7 @@ async function main() {
             describe: "Cloud provider (aws or gcp)",
             type: "string",
             choices: ["aws", "gcp"],
+            demandOption: true,
           })
           .option("cloudConfig", {
             describe: "Cloud config as JSON string (see docs)",
@@ -57,6 +58,7 @@ async function main() {
           .option("cloudConfigFile", {
             describe: "Path to cloud config JSON file",
             type: "string",
+            demandOption: true,
           })
           .option("autoSetupConfig", {
             describe: "Automatically setup Pulumi config for the stack",
@@ -89,17 +91,19 @@ async function main() {
           .option("secretsFile", {
             describe: "Path to secrets JSON file",
             type: "string",
+            demandOption: true,
           })
           .option("valuesFile", {
             describe: "Path to values JSON file",
             type: "string",
+            demandOption: true,
           })
           .help(),
       async (args) => {
         // Prefer file input if provided
-        let secretsJson = args.secretsJson;
-        let valuesJson = args.valuesJson;
-        let cloudConfig = undefined;
+        let secretsJson = args.secretsJson || "{}"; // Default to empty JSON if not provided
+        let valuesJson = args.valuesJson || "{}"; // Default to empty JSON if not provided
+        let cloudConfig = undefined as any; // Default to undefined if not provided
         const fs = await import("fs");
         if (args.secretsFile) {
           try {

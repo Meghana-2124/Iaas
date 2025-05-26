@@ -1,6 +1,6 @@
 # Helm Chart for {{ .Values.companyName }} Rafiki Application Suite
 
-This README provides instructions for understanding and using the Helm chart for the {{ .Values.companyName }} Rafiki application suite. This chart is primarily designed to be deployed via the Pulumi project located in the parent directory (`../pulumi/`) but can also be used manually with Helm CLI.
+This README provides instructions for understanding and using the Helm chart for the {{ .Values.companyName }} Rafiki application suite. This chart is primarily designed to be deployed via the **TypeScript deployment package** in the parent directory (`../pulumi/`), which automates multi-cloud Kubernetes deployments using Pulumi. The chart can also be used manually with Helm CLI.
 
 ## Prerequisites (for Manual Helm CLI Usage)
 

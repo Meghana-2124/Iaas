@@ -65,8 +65,7 @@
     "clean": "rm -rf dist",
     "prepack": "npm run clean && npm run build",
     "prepublishOnly": "npm run build",
-    "pulumi": "node dist/automation.js",
-    "dev": "npm run build && node dist/automation.js",
+    "dev": "npm run build && node dist/src/cli/index.js",
     "lint": "echo 'Add linting configuration as needed'",
     "test": "echo 'Add tests as needed'"
   }

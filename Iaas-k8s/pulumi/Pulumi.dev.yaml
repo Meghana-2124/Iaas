@@ -1,7 +1,0 @@
-config:
-  aws:region: us-east-1 # Default region, can be changed as needed
-  iaas:cloudProvider: aws # Or "gcp"
-  # GCP specific config (uncomment and set if cloudProvider is "gcp")
-  # gcp:project: YOUR_GCP_PROJECT_ID
-  # gcp:region: us-central1
-  # gcp:zone: us-central1-a

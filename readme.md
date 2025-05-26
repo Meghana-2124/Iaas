@@ -2,6 +2,52 @@
 
 A comprehensive multi-cloud Kubernetes infrastructure deployment solution supporting AWS EKS and GCP GKE.
 
+## How to Run
+
+1. **Install prerequisites**:
+
+   - [Node.js](https://nodejs.org/) (v18+)
+   - [Pulumi CLI](https://www.pulumi.com/docs/get-started/install/)
+   - Cloud CLI tools (e.g., AWS CLI, gcloud) and credentials configured
+
+2. **Install dependencies**:
+
+   ```bash
+   cd Iaas-k8s/pulumi
+   npm install
+   ```
+
+3. **Build the project**:
+
+   ```bash
+   npm run build
+   ```
+
+4. **Prepare your configuration files**:
+
+   - `config/secrets.json` (sensitive values)
+   - `config/values.json` (non-sensitive values)
+   - `config/cloudConfig.aws.json` or `config/cloudConfig.gcp.json` (cloud provider config)
+
+5. **Run a deployment (example for AWS)**:
+
+   ```bash
+   npm run dev -- up dev \
+     --companyName mycompany \
+     --secretsFile ./config/secrets.json \
+     --valuesFile ./config/values.json \
+     --cloudProvider aws \
+     --cloudConfigFile ./config/cloudConfig.aws.json \
+     --autoSetupConfig
+   ```
+
+   For GCP, change `--cloudProvider` and `--cloudConfigFile` accordingly.
+
+6. **See outputs and instructions**:
+   - The CLI and Pulumi outputs will provide endpoints, DNS, and next steps.
+
+> For more details, see the [Iaas-k8s/pulumi/README.md](./Iaas-k8s/pulumi/README.md).
+
 ## Project Structure
 
 ```
@@ -44,7 +90,7 @@ Iaas/
 
 4. **Deploy infrastructure (with fully automated config setup, using JSON files)**:
    ```bash
-   npm run pulumi -- up dev \
+   npm run dev -- up dev \
      --companyName mycompany \
      --secretsFile ./config/secrets.json \
      --valuesFile ./config/values.json \

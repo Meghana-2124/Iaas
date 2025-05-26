@@ -334,10 +334,10 @@ export async function handleDeployment(
   const startTime = Date.now();
   const {
     action,
-    stackName,
+    stackName, // Keep original stackName for constructing the FQSN
     secretsJson,
     valuesJson,
-    companyName,
+    companyName, // This will be used as the organization
     workDir,
     helmChartPath,
     logLevel = "info",
@@ -347,16 +347,24 @@ export async function handleDeployment(
     timeout = 1800, // 30 minutes default
   } = options;
 
+  // Determine project name (e.g., from package.json or a fixed value)
+  // For now, let's assume a fixed project name. Replace with dynamic determination if needed.
+  const projectName = "iaas-k8s"; // Placeholder: Replace with actual project name
+  const organizationName = companyName; // Assuming companyName is the organization
+
+  // Construct the fully qualified stack name
+  const fullyQualifiedStackName = `${organizationName}/${projectName}/${stackName}`;
+
   // Initialize logger and progress callback
   const logger = new ConsoleLogger(logLevel);
   const reportProgress = createProgressCallback(logger, onProgress);
 
   // Initialize deployment monitor
-  const deploymentId = `${companyName}-${stackName}-${Date.now()}`;
+  const deploymentId = `${companyName}-${fullyQualifiedStackName}-${Date.now()}`;
   const monitor = new DeploymentMonitor(
     deploymentId,
     action,
-    stackName,
+    fullyQualifiedStackName, // Use fully qualified name
     companyName,
     logger
   );
@@ -428,7 +436,7 @@ export async function handleDeployment(
     if (!validateConfig) {
       logger.debug("Performing basic configuration validation");
       const config: DeploymentConfig = {
-        stackName,
+        stackName: fullyQualifiedStackName, // Use fully qualified name
         secretsJson,
         valuesJson,
         companyName,
@@ -450,6 +458,18 @@ export async function handleDeployment(
     // =============================================================================
     reportProgress("initializing", "Initializing Pulumi stack");
 
+    // Ensure Pulumi passphrase is set for stack secrets management
+    if (
+      !process.env.PULUMI_CONFIG_PASSPHRASE &&
+      !process.env.PULUMI_CONFIG_PASSPHRASE_FILE
+    ) {
+      process.env.PULUMI_CONFIG_PASSPHRASE = "dev-default-passphrase";
+      logger.warn(
+        "PULUMI_CONFIG_PASSPHRASE was not set. Using default passphrase for stack secrets. " +
+          "This is insecure for production. Set PULUMI_CONFIG_PASSPHRASE or PULUMI_CONFIG_PASSPHRASE_FILE for secure deployments."
+      );
+    }
+
     const resolvedWorkDir = workDir || path.resolve(".");
     logger.debug(`Working directory: ${resolvedWorkDir}`);
 
@@ -460,7 +480,7 @@ export async function handleDeployment(
     }
 
     const projectSettings: automation.LocalProgramArgs = {
-      stackName: stackName,
+      stackName: fullyQualifiedStackName, // Use fully qualified name
       workDir: resolvedWorkDir,
     };
 
@@ -488,7 +508,7 @@ export async function handleDeployment(
       // Ensure stack is initialized before config setup
       const resolvedWorkDir = workDir || path.resolve(".");
       const projectSettings: automation.LocalProgramArgs = {
-        stackName: stackName,
+        stackName: fullyQualifiedStackName,
         workDir: resolvedWorkDir,
       };
       stack = await withErrorHandling(
@@ -513,7 +533,7 @@ export async function handleDeployment(
     if (!stack) {
       const resolvedWorkDir = workDir || path.resolve(".");
       const projectSettings: automation.LocalProgramArgs = {
-        stackName: stackName,
+        stackName: fullyQualifiedStackName,
         workDir: resolvedWorkDir,
       };
       stack = await withErrorHandling(

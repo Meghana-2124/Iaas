@@ -1,6 +1,51 @@
 # IaaS K8s Deployment Package
 
-A TypeScript package for deploying Kubernetes infrastructure across multiple cloud providers (AWS, GCP) using Pulumi automation.
+This is a **TypeScript package** for deploying Kubernetes infrastructure across multiple cloud providers (AWS, GCP) using Pulumi automation. It can be used as a library or CLI tool to provision and manage Kubernetes clusters and deploy Helm charts in a multi-cloud environment.
+
+## How to Run
+
+1. **Install prerequisites**:
+
+   - Node.js v18+
+   - Pulumi CLI
+   - Cloud CLI tools (AWS CLI, gcloud) and credentials
+
+2. **Install dependencies**:
+
+   ```bash
+   npm install
+   ```
+
+3. **Build the project**:
+
+   ```bash
+   npm run build
+   ```
+
+4. **Prepare configuration files**:
+
+   - `config/secrets.json`
+   - `config/values.json`
+   - `config/cloudConfig.aws.json` or `config/cloudConfig.gcp.json`
+
+5. **Run a deployment (CLI example)**:
+
+   ```bash
+   npm run dev -- up dev \
+     --companyName mycompany \
+     --secretsFile ./config/secrets.json \
+     --valuesFile ./config/values.json \
+     --cloudProvider aws \
+     --cloudConfigFile ./config/cloudConfig.aws.json \
+     --autoSetupConfig
+   ```
+
+   For GCP, use `--cloudProvider gcp` and the appropriate config file.
+
+6. **Outputs**:
+   - The CLI will print endpoints, DNS, and next steps.
+
+> For advanced usage and library integration, see the sections below.
 
 ## Project Structure
 

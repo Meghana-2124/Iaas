@@ -1,6 +1,6 @@
 # Iaas-k8s Infrastructure Management
 
-This directory contains the infrastructure as code and deployment configurations for the Iaas Rafiki application suite on Kubernetes. It supports deployment to both AWS (Amazon Web Services) and GCP (Google Cloud Platform) using Pulumi for infrastructure provisioning and Helm for application deployment. The project is designed to be deployed using a `companyName` configuration for customized resource naming.
+This project is a **TypeScript package** for deploying Kubernetes infrastructure across multiple cloud providers (AWS, GCP) using Pulumi automation. It provides infrastructure as code and deployment configurations for the Iaas Rafiki application suite on Kubernetes. The package can be used as a library or CLI tool, and supports deployment to both AWS (Amazon Web Services) and GCP (Google Cloud Platform) using Pulumi for infrastructure provisioning and Helm for application deployment. The project is designed to be deployed using a `companyName` configuration for customized resource naming.
 
 ## Directory Structure
 
@@ -48,7 +48,7 @@ This setup uses a combination of Pulumi and Helm:
 
     - The main program (`pulumi/index.ts`) orchestrates cloud provider selection (AWS/GCP) based on stack configuration (`iaas:cloudProvider`) and deploys the respective infrastructure. It also deploys the Helm chart.
     - Resources are named using a `companyName` prefix defined in the Pulumi stack configuration (e.g., `pulumi config set companyName yourcompany`).
-    - The `pulumi/automation.ts` script provides a CLI-like interface (`npm run pulumi -- <command> <stack>`) for stack operations.
+    - The `pulumi/automation.ts` script provides a CLI-like interface (`npm run dev -- <command> <stack>`) for stack operations.
 
 2.  **Helm**: Packages and deploys the Iaas Rafiki application suite.
     - The `helm-chart/` directory contains templates and values. The `Chart.yaml` name is dynamically set using `{{ .Values.companyName }}-rafiki`.
@@ -130,8 +130,8 @@ This setup uses a combination of Pulumi and Helm:
 5.  **Deploy Infrastructure and Application**:
 
     - From the `pulumi/` directory:
-      - Preview: `npm run pulumi preview <stack-name>`
-      - Deploy: `npm run pulumi up <stack-name>`
+      - Preview: `npm run dev preview <stack-name>`
+      - Deploy: `npm run dev up <stack-name>`
     - The `automation.ts` script will prompt for the environment (dev/prod) to determine which `values.<env>.yaml` and `secrets.<env>.yaml` to use from the cloud-specific `chart-config` directory.
 
 6.  **Accessing the Application**:
@@ -143,8 +143,8 @@ This setup uses a combination of Pulumi and Helm:
 7.  **Managing Deployments**:
     - Modify Pulumi code or Helm chart values/secret source files.
     - Rebuild (`npm run build` in `pulumi/`).
-    - Run `npm run pulumi up <stack-name>`.
-    - Destroy: `npm run pulumi destroy <stack-name>`.
+    - Run `npm run dev up <stack-name>`.
+    - Destroy: `npm run dev destroy <stack-name>`.
 
 ## Important Notes
 
