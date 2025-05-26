@@ -50,7 +50,7 @@ export const GcpCloudConfigSchema = z.object({
   project: z.string().min(1, "GCP project is required"),
   region: z.string().min(1, "GCP region is required"),
   zone: z.string().optional(),
-  credentials: z.string().optional(), // Path to service account JSON or JSON content
+  credentials: z.union([z.string(), z.object({}).passthrough()]).optional(), // Path, JSON string, or service account object
 });
 
 export const CloudConfigSchema = z.union([

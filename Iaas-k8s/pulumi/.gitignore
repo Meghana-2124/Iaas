@@ -49,3 +49,4 @@ coverage/
 *.lcov
 
 config/gcp-new.json
+service-account*.json

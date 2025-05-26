@@ -131,19 +131,34 @@ export class PulumiConfigManager {
     }
 
     if (config.credentials) {
-      // Check if it's a file path or JSON content
-      const isFilePath = !config.credentials.startsWith("{");
+      let credentialsValue: string;
 
-      if (isFilePath) {
-        await stack.setConfig("gcp:credentials", { value: config.credentials });
-        this.logger.debug("✓ Set GCP credentials file path");
+      // Handle different types of credentials input
+      if (typeof config.credentials === "object") {
+        // If credentials is an object (service account key), stringify it
+        credentialsValue = JSON.stringify(config.credentials);
+        this.logger.debug("✓ Set GCP credentials from JSON object");
+      } else if (typeof config.credentials === "string") {
+        // Check if it's a file path or JSON content
+        const isFilePath = !config.credentials.startsWith("{");
+
+        if (isFilePath) {
+          credentialsValue = config.credentials;
+          this.logger.debug("✓ Set GCP credentials file path");
+        } else {
+          credentialsValue = config.credentials;
+          this.logger.debug("✓ Set GCP credentials JSON string");
+        }
       } else {
-        await stack.setConfig("gcp:credentials", {
-          value: config.credentials,
-          secret: true,
-        });
-        this.logger.debug("✓ Set GCP credentials JSON");
+        throw new Error(
+          "Invalid credentials format. Must be a file path, JSON string, or service account object."
+        );
       }
+
+      await stack.setConfig("gcp:credentials", {
+        value: credentialsValue,
+        secret: true,
+      });
     }
   }
 

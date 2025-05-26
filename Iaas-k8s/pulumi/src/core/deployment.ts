@@ -470,7 +470,9 @@ export async function handleDeployment(
       );
     }
 
-    const resolvedWorkDir = workDir || path.resolve(".");
+    // Ensure workDir points to the directory containing Pulumi.yaml
+    // If workDir is not provided, use the current working directory
+    const resolvedWorkDir = workDir || process.cwd();
     logger.debug(`Working directory: ${resolvedWorkDir}`);
 
     // Set custom Helm chart path if provided
@@ -506,7 +508,7 @@ export async function handleDeployment(
         "Auto-setup of Pulumi config enabled. Setting up stack config..."
       );
       // Ensure stack is initialized before config setup
-      const resolvedWorkDir = workDir || path.resolve(".");
+      const resolvedWorkDir = workDir || process.cwd();
       const projectSettings: automation.LocalProgramArgs = {
         stackName: fullyQualifiedStackName,
         workDir: resolvedWorkDir,
@@ -531,7 +533,7 @@ export async function handleDeployment(
 
     // If stack is not yet initialized (autoSetupConfig was not used), initialize it now
     if (!stack) {
-      const resolvedWorkDir = workDir || path.resolve(".");
+      const resolvedWorkDir = workDir || process.cwd();
       const projectSettings: automation.LocalProgramArgs = {
         stackName: fullyQualifiedStackName,
         workDir: resolvedWorkDir,

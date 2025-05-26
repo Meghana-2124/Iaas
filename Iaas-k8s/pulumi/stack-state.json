@@ -1,0 +1,67 @@
+{
+    "version": 3,
+    "deployment": {
+        "manifest": {
+            "time": "2025-05-26T13:09:41.370181+01:00",
+            "magic": "f5af9aea0eb5ca1b68221c59920e8a630d5acc8aa6e4e0b98c4cd6eb8cdc40e8",
+            "version": "v3.170.0"
+        },
+        "secrets_providers": {
+            "type": "passphrase",
+            "state": {
+                "salt": "v1:M74nmj7l5gQ=:v1:bJCJKHU791ukR3F3:9LRe/aLIIl7yLSJC9sjzLdpQGREd9Q=="
+            }
+        },
+        "resources": [
+            {
+                "urn": "urn:pulumi:mycompany-prod::iaas-k8s::pulumi:pulumi:Stack::iaas-k8s-mycompany-prod",
+                "custom": false,
+                "type": "pulumi:pulumi:Stack",
+                "outputs": {
+                    "ConfigValidationError": {},
+                    "ConsoleLogger": {},
+                    "DeploymentError": {},
+                    "RollbackError": {},
+                    "createProgressCallback": {},
+                    "handleDeployment": {},
+                    "performRollback": {},
+                    "validateDeploymentConfig": {},
+                    "withErrorHandling": {}
+                },
+                "created": "2025-05-26T10:37:32.531224Z",
+                "modified": "2025-05-26T10:37:32.531224Z",
+                "sourcePosition": "project:///node_modules/@pulumi/runtime/stack.ts#37,19"
+            },
+            {
+                "urn": "urn:pulumi:mycompany-prod::iaas-k8s::pulumi:providers:gcp::default_8_32_1",
+                "custom": true,
+                "id": "f55aabef-2f08-40c6-a2b6-ccc104bc7793",
+                "type": "pulumi:providers:gcp",
+                "inputs": {
+                    "__internal": {},
+                    "credentials": {
+                        "4dabf18193072939515e22adb298388d": "1b47061264138c4ac30d75fd1eb44270",
+                        "ciphertext": "v1:kqnFSGkZp2FHDeLS:0jrqd/IjxHGRuDbOoI/0RIc5IeefzTDL0KPl4QYCjzUBwErAwfuOsb/IPh0fBtx2ZACmKtXVww6Cc7NXp0NsGlTBMJYWQSUJh1g16VitxviJSBRYJlUa7Qf+Bp0/ap2DnvzXf7Bucbgq3BerO7mZBY7gHBGpEIQmqUZpw0NdlUQRDGMrH18lBynukvyCIFOLZ9445SHEKTycYN/kisJLMQNb1fZ1oQWkbbv98NLv2Ng77idiYnK/L1f+V/A+gCk+wUg3x+QeXdJmw1iRs/MezclW2jUoZvJlHc6bFdK30uGdxqUBpnymPX8TZFer/DGNLjwVoRHenXJfV5A/LUysSep04JlFBQdHHbtE/io+jJbhQrcTBT8+/czylPM2B50ev3g8688Y4u6CVesxHnBR0ng9s4DVWptVM4ka9Py/FMd/1Q4jVXxPqSzjUX+HrnBhYPsoERqDa/L3JuDFbFdTq6GVRAWe5tLIRts7F+AliqVABr2rI2WLWlOKRxOLg+V38iBdd/fWl5jqF00XaWIrn1pprYXnm+Idf/eqDwiaB7YzyLckMM8GL2o+2uyk1U6g/9f2J4BRVF+hPS2fx8jJWBhSiEltRrKUb53IB23wlkEXu/F2rV9BWA77XEgxYzVFm5qQK/FrzLoSUo/fsVf84cZ7bSwnieCLqX3AukX9V71+oRVrqzzztk/46MIJl0g0IMziold/9Y9QWbme8kCuz4xXhu2p+UcyaXQbUPqrHt6QAREVdUo1duGybpSNEXCgZtru6IBwQwDNe+JqM1JIkj7gYVQIQNh45xFX/ddADVQt++dydbB3aQfnDKmOu43oNz47s002RdqOUyxTs+I8aRcAdRb8xcmHfEnE98+TJyr0C3ST7tPV8392+JLfMhkUx26gqyyCJnhpTUitE4LcnLzBV2BKbrt1nF5eOnoKScUzGUV0UIpi5qcqxZLqZdpPwoitUKqTjt/OLpMVnU5S9Lzq7dPPp6cKELwMnEQIx4buNUXvOknPzVJYjVAC+YkyU49MJlWYi0iNbMgcOKahw7adb/Vq1BBQ9x0/60SjfeYIlyIyAIio7q4200MXMLxFLLIQji4tVEY2ghTQnjim5oGlFW5vHBK5omLiKEBWiP+wbbVKeDwIiWQ2gFPz0Vf2EZ1BIC86jhoLpYRK02UkNyOTpYKPISmMIEzOcYV+48xfBTEVhIg99AvH+pVSCewudHgkzTb4oOUthF0O4bPM0UMrEqwRXFi299RM2a1m4ye8m2pV9zYwI6L3gNoN2B8dZCaV5IY3SCmawDGV0kAkxavRnLrOhhI/ubKXQrAsNjOxhYCUpbBNlDW0WwFXv+S6ccHYq6MkOys6SpJLvXxLJgiUQOphxdxKmfWdn9InIpFVeqvvCxfBigqug0jgtO6sPyOvzgmbsRSZLp7mZ+vE96zGLp8LE28xEtB4ZKBi8rwc8lfaQe3RJDKFUnKlUJTZiS85IT2750SPpEY6KSFuN5wi89mh18SynZhWfJDjDO7u9pccKtqn7d0MhIeezy0+p3SrhLak0wyChrWONtetlCJXhyGiVNoo/v0HhhsRlHab8NuKe95A6H/x9X13OBYlngXEvZM/9Srj7Gcv74hAJ+3aGB4SX3J67Byc8NzHfw8QGoE30eNj7SuvTTknNSJJPcpiPSg1e/NDWQH7QTY1GS725d2ZnbZWWNrP2S91HwT46fCZev49t+8LScwJdzMwl7W0AbdkKUQxscu0CEzoDYFuQBBw1T6de8wVIvhLTcmGlZsMcWyCeZzNOFcnO1ya24ZCV6lYwU68RQ1p3iFna/37k5UUjqxwNZj4x+5IeovzBzYRcFooUKPAgO0ClgQL/4ZOrQNk2yuG+qWCm4s0U/6hNnip2K8c0YkF+a/viFWgrW7uz5WoQ+rmbNfQhqtBZe23FSHawawyBgdr226rzsN7J71pnKif2hTf51C5ks0b2ib3+oOG/NcaNUG8Zbg8ddCLpfhtcmQ2PmIqU18sSyd9BE1n8gd+jjdhyvJtjq7X2uQTT9MJ4ao8UBpaxUwZy+doMQhplUp52Cr6o/gGhHtpUXM2kkdvBUF/Fa8Xg28OUaY47zL7hL4QcdIceCdhhZ0wwEyMy2psNWk4blnjnsTpAnqBLrsc44lrSfzg9ijPGt42Q2YpWUxgbSqiAYzuzmVaqdn5RiFDmtX8ObRVk42WVnhWsS4/8FFUvfZk931xKZSQhI7edfZTdLj/6XkIvyTjKYmHNfaye9nj88lH7vmUDlcBzteSgIFpYSq2rs4kMQQ5CznJgAEw7iAbZL9H2TWfuISXNanKLPZPqC4XTQpLLXsr6dkigDr/oHa+sGArbLmpRDH3fjjovRy4YMnQ696q7XaFBvs0Fv0BR8U3ggUUG4SotXe9DnKC+lWdknILWQG9yAFzBGMj+QKtJ1Tf1SVxH3MTJS2bp7Mq7i7bJ+vpr8makP70yl+b0XI+nt1l91FuJIAy7p/i2SkjrK5npTw6Ew9CQT6jpcuHWONU/jB8ByEYZVqJDkDH/cNdB9vvQNGyjUOTIsQLuEFlUI4l9EDdx7K5wMjTdhKLcS3iFXABX5UVMF8uio1rtvtrisOGs+YY4kavLU5ti57OGUXoT1ccVjJ+XgJYzCzlztYvxMz4UR0BmbvNKJ7Z+UnXe5w67roWaQbcD9ckglCCygStjULkqDv0Bf59PGhrappMJ6hlnXFtCRH78DfhSO9sp7mEi4uozAHgUjJracC5AdyXaHR5e9MaCNAoVTs0r/Oec/PVbMtconG3AT2B3W4jJbV8FIEvNKGxctp09VkEKb1VyAMrAhkgpWO8j+ejBlOEd3MsSUFwRlsIOoLOQAh+yOfL0qceINcWipo18Rx81LKh4s0JB6Pu020u+TgKr/MRO7Qhwh17qRgbdMazJnJDPVGUI/Sw3KcegrS9ui7Vw82/y4QkTAsGqHOctYvObwcFrqFuZ5kHpld24jinn85+r+y4perhSYH6YforiXPShxvnRVEsUjqPMGtZZNx2O22EgCZoNjHxsIzft0j++MS1tDTGcdFRuz6MrFStZKzgJZuBILQV2yuxtrrks1hNZhYqgwqKl+za8vH4ACl268JAKT4jwFEvNVsvETHPWekY3CEm8HYc8zNJ+GtlbQHdooPQlO7zT1DF9WVupOCAhiqYIQMGiLHN0+zMd93bTrAi6OnJ76ADzQ=="
+                    },
+                    "project": "iaas-test-461011",
+                    "region": "us-central1",
+                    "version": "8.32.1",
+                    "zone": "us-central1-a"
+                },
+                "outputs": {
+                    "credentials": {
+                        "4dabf18193072939515e22adb298388d": "1b47061264138c4ac30d75fd1eb44270",
+                        "ciphertext": "v1:kqnFSGkZp2FHDeLS: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"
+                    },
+                    "project": "iaas-test-461011",
+                    "region": "us-central1",
+                    "version": "8.32.1",
+                    "zone": "us-central1-a"
+                },
+                "created": "2025-05-26T12:09:39.998949Z",
+                "modified": "2025-05-26T12:09:39.998949Z"
+            }
+        ],
+        "metadata": {}
+    }
+}

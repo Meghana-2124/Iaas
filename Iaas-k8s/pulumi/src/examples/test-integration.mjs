@@ -7,7 +7,7 @@ import {
   DeploymentError,
   ConfigValidationError,
   ConsoleLogger,
-} from "./dist/automation.js";
+} from "../../dist/automation.js";
 
 console.log("🔍 Testing enhanced deployment function integration...\n");
 
