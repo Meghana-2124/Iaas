@@ -4,6 +4,8 @@ import {
   validateDeploymentOptionsWithZod,
   validateSecretsStructure,
   validateValuesStructure,
+  validateAndEncodeSecrets,
+  encodeSecretsForKubernetes,
 } from "../utils/validation.js";
 import { DeploymentMonitor } from "../utils/monitoring.js";
 import { PulumiConfigManager } from "../utils/config-manager.js";
@@ -528,16 +530,48 @@ export async function handleDeployment(
     // =============================================================================
     reportProgress("configuring", "Setting up stack configuration");
 
-    // Set configuration with validation
+    // Set configuration with validation and encoding
     await withErrorHandling(
       async () => {
-        // Set secrets JSON
-        const parsedSecrets = JSON.parse(secretsJson);
+        // Validate and encode secrets JSON for Kubernetes
+        logger.info(
+          "Validating and encoding secrets for Kubernetes deployment..."
+        );
+        const secretsValidation = validateAndEncodeSecrets(secretsJson);
+
+        if (!secretsValidation.isValid) {
+          const errorMessages = secretsValidation.errors
+            .map((e) => `${e.field}: ${e.message}`)
+            .join(", ");
+          throw new DeploymentError(
+            `Secrets validation failed: ${errorMessages}`,
+            "SECRETS_VALIDATION_ERROR",
+            { errors: secretsValidation.errors }
+          );
+        }
+
+        // Log encoding report if available
+        if (secretsValidation.encodingReport) {
+          const encodingStats = Object.entries(
+            secretsValidation.encodingReport
+          ).reduce((acc, [key, status]) => {
+            acc[status] = (acc[status] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+
+          logger.info(
+            `Secret encoding complete: ${JSON.stringify(encodingStats)}`
+          );
+        }
+
+        // Set the encoded secrets JSON
         await stack!.setConfig("helmSecretsJson", {
-          value: secretsJson,
+          value: secretsValidation.encodedSecretsJson,
           secret: true,
         });
-        logger.info("Set helmSecretsJson configuration (as secret)");
+        logger.info(
+          "Set helmSecretsJson configuration with base64 encoded secrets (as secret)"
+        );
 
         // Set values JSON if provided
         if (valuesJson) {

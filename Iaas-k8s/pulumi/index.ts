@@ -3,7 +3,6 @@ import * as gcpInfra from "./src/index.js";
 import * as pulumi from "@pulumi/pulumi";
 import * as k8s from "@pulumi/kubernetes";
 import * as path from "path";
-import type { IngressStatus, ServiceStatus } from "./src/index.js";
 
 const stack = pulumi.getStack();
 const generalConfig = new pulumi.Config();

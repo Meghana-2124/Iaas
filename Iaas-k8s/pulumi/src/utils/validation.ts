@@ -310,6 +310,187 @@ export function validateValuesStructure(
 }
 
 // =============================================================================
+// Secret Encoding Utilities
+// =============================================================================
+
+export function encodeSecretValue(value: string): string {
+  return Buffer.from(value, "utf8").toString("base64");
+}
+
+export function decodeSecretValue(encodedValue: string): string {
+  return Buffer.from(encodedValue, "base64").toString("utf8");
+}
+
+export function isBase64Encoded(value: string): boolean {
+  try {
+    // Skip obvious non-base64 values
+    if (!value || value.length < 4) return false;
+
+    // Check for placeholder values
+    if (
+      value.startsWith("PLEASE_REPLACE_WITH_") ||
+      value.startsWith("<REPLACE_WITH_") ||
+      value.includes("REPLACE_WITH")
+    ) {
+      return false;
+    }
+
+    // Check if the string contains only valid base64 characters
+    const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+    if (!base64Regex.test(value)) return false;
+
+    // Check if length is valid for base64 (multiple of 4)
+    if (value.length % 4 !== 0) return false;
+
+    // Try to decode and re-encode to verify it's valid base64
+    const decoded = Buffer.from(value, "base64").toString("base64");
+    return decoded === value;
+  } catch {
+    return false;
+  }
+}
+
+export function encodeSecretsForKubernetes(secrets: any): any {
+  const encodedSecrets = JSON.parse(JSON.stringify(secrets)); // Deep clone
+
+  // Function to recursively encode all string values
+  function encodeObject(obj: any): void {
+    for (const [key, value] of Object.entries(obj)) {
+      if (typeof value === "string") {
+        // Skip placeholder values that indicate they need replacement
+        if (
+          value.startsWith("PLEASE_REPLACE_WITH_") ||
+          value.startsWith("<REPLACE_WITH_") ||
+          value.includes("REPLACE_WITH")
+        ) {
+          console.warn(`Found placeholder value for ${key}: ${value}`);
+          continue;
+        }
+
+        // Encode all string values if not already base64 encoded
+        if (!isBase64Encoded(value)) {
+          obj[key] = encodeSecretValue(value);
+        }
+      } else if (typeof value === "object" && value !== null) {
+        // Recursively process objects
+        encodeObject(value);
+      }
+    }
+  }
+
+  encodeObject(encodedSecrets);
+  return encodedSecrets;
+}
+
+export function validateAndEncodeSecrets(secretsJson: string): {
+  isValid: boolean;
+  encodedSecretsJson: string;
+  errors: FieldValidationError[];
+  encodingReport?: {
+    [key: string]: "encoded" | "already_encoded" | "placeholder" | "skipped";
+  };
+} {
+  const errors: FieldValidationError[] = [];
+  const encodingReport: {
+    [key: string]: "encoded" | "already_encoded" | "placeholder" | "skipped";
+  } = {};
+
+  try {
+    const secrets = JSON.parse(secretsJson);
+
+    // Validate structure first
+    const structureErrors = validateSecretsStructure(secretsJson);
+    errors.push(...structureErrors);
+
+    if (errors.length > 0) {
+      return {
+        isValid: false,
+        encodedSecretsJson: secretsJson,
+        errors,
+        encodingReport,
+      };
+    }
+
+    // Encode secrets for Kubernetes with tracking
+    const { encodedSecrets, report } =
+      encodeSecretsForKubernetesWithReport(secrets);
+
+    console.log("Secret encoding report:", report);
+
+    return {
+      isValid: true,
+      encodedSecretsJson: JSON.stringify(encodedSecrets),
+      errors: [],
+      encodingReport: report,
+    };
+  } catch (e) {
+    errors.push({
+      field: "secretsJson",
+      message: `Invalid JSON format for secrets: ${
+        e instanceof Error ? e.message : "Unknown error"
+      }`,
+      value: secretsJson,
+    });
+
+    return {
+      isValid: false,
+      encodedSecretsJson: secretsJson,
+      errors,
+      encodingReport,
+    };
+  }
+}
+
+/**
+ * Enhanced version that provides detailed reporting of encoding operations
+ */
+function encodeSecretsForKubernetesWithReport(secrets: any): {
+  encodedSecrets: any;
+  report: {
+    [key: string]: "encoded" | "already_encoded" | "placeholder" | "skipped";
+  };
+} {
+  const encodedSecrets = JSON.parse(JSON.stringify(secrets)); // Deep clone
+  const report: {
+    [key: string]: "encoded" | "already_encoded" | "placeholder" | "skipped";
+  } = {};
+
+  // Function to recursively encode all string values
+  function encodeObject(obj: any, path: string = ""): void {
+    for (const [key, value] of Object.entries(obj)) {
+      const currentPath = path ? `${path}.${key}` : key;
+
+      if (typeof value === "string") {
+        // Skip placeholder values that indicate they need replacement
+        if (
+          value.startsWith("PLEASE_REPLACE_WITH_") ||
+          value.startsWith("<REPLACE_WITH_") ||
+          value.includes("REPLACE_WITH")
+        ) {
+          report[currentPath] = "placeholder";
+          console.warn(`Found placeholder value for ${currentPath}: ${value}`);
+          continue;
+        }
+
+        // Encode all string values if not already base64 encoded
+        if (isBase64Encoded(value)) {
+          report[currentPath] = "already_encoded";
+        } else {
+          obj[key] = encodeSecretValue(value);
+          report[currentPath] = "encoded";
+        }
+      } else if (typeof value === "object" && value !== null) {
+        // Recursively process objects
+        encodeObject(value, currentPath);
+      }
+    }
+  }
+
+  encodeObject(encodedSecrets);
+  return { encodedSecrets, report };
+}
+
+// =============================================================================
 // Type Guards
 // =============================================================================
 

@@ -6,6 +6,7 @@ import type {
   CloudConfig,
   Logger,
 } from "../types/index.js";
+import { validateAndEncodeSecrets } from "./validation.js";
 
 export interface PulumiConfigSetup {
   stackName: string;
@@ -155,12 +156,37 @@ export class PulumiConfigManager {
   ): Promise<void> {
     this.logger.debug("Setting Helm configuration...");
 
-    // Set Helm secrets and values as Pulumi config
+    // Validate and encode secrets before setting them
+    this.logger.debug("Validating and encoding secrets for Kubernetes...");
+    const secretsValidation = validateAndEncodeSecrets(options.secretsJson);
+
+    if (!secretsValidation.isValid) {
+      const errorMessages = secretsValidation.errors
+        .map((e) => `${e.field}: ${e.message}`)
+        .join(", ");
+      throw new Error(`Secrets validation failed: ${errorMessages}`);
+    }
+
+    // Log encoding report if available
+    if (secretsValidation.encodingReport) {
+      const encodingStats = Object.entries(
+        secretsValidation.encodingReport
+      ).reduce((acc, [key, status]) => {
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      this.logger.debug(
+        `Secret encoding complete: ${JSON.stringify(encodingStats)}`
+      );
+    }
+
+    // Set Helm secrets with base64 encoding
     await stack.setConfig("helmSecretsJson", {
-      value: options.secretsJson,
+      value: secretsValidation.encodedSecretsJson,
       secret: true,
     });
-    this.logger.debug("✓ Set Helm secrets configuration");
+    this.logger.debug("✓ Set Helm secrets configuration with base64 encoding");
 
     if (options.valuesJson) {
       await stack.setConfig("helmValuesJson", { value: options.valuesJson });

@@ -1,18 +1,18 @@
 {
-  "replicaCount": 1,
+  "replicaCount": 2,
   "imagePullSecrets": [],
   "nameOverride": "",
   "fullnameOverride": "",
   "global": {
-    "environment": "dev"
+    "environment": "development"
   },
   "rafikiAuth": {
     "enabled": true,
     "name": "rafiki-auth",
     "image": {
       "repository": "ghcr.io/interledger/rafiki-auth",
-      "tag": "v1.0.0-alpha.20",
-      "pullPolicy": "IfNotPresent"
+      "tag": "latest",
+      "pullPolicy": "Always"
     },
     "replicaCount": 1,
     "ports": {
@@ -37,8 +37,8 @@
     "name": "rafiki-backend",
     "image": {
       "repository": "ghcr.io/interledger/rafiki-backend",
-      "tag": "v1.0.0-alpha.20",
-      "pullPolicy": "IfNotPresent"
+      "tag": "latest",
+      "pullPolicy": "Always"
     },
     "replicaCount": 1,
     "ports": {
@@ -150,5 +150,20 @@
       "create": true,
       "name": "{{ .Values.rafikiBackend.secrets.name }}"
     }
+  },
+  "environment": "development",
+  "resources": {
+    "requests": {
+      "cpu": "100m",
+      "memory": "128Mi"
+    },
+    "limits": {
+      "cpu": "500m",
+      "memory": "512Mi"
+    }
+  },
+  "image": {
+    "tag": "latest",
+    "pullPolicy": "Always"
   }
 }
