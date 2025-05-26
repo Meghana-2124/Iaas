@@ -1,10 +1,10 @@
 apiVersion: v2
-name: "{{ .Values.companyName }}-rafiki" # Modified to use companyName
-description: A Helm chart for deploying {{ .Values.companyName }} Rafiki application suite # Modified to use companyName
+name: "iaas-rafiki" # Static chart name - companyName will be handled in templates
+description: A Helm chart for deploying Rafiki application suite with dynamic company naming
 type: application
 version: 0.2.0
 appVersion: "1.0.0" # Corresponds to the application version being deployed
-kubeVersion: ">=1.25.0-0 <1.32.0-0" # Updated to support newer Kubernetes versions
+kubeVersion: ">=1.25.0-0 <1.35.0-0" # Support range of Kubernetes versions
 
 # Maintainers (optional)
 maintainers:

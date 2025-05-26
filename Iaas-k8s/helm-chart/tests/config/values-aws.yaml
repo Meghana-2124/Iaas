@@ -1,0 +1,242 @@
+# AWS-specific values for iaas-rafiki Helm chart
+companyName: mycompany
+
+# Global settings
+global:
+  environment: production
+  region: us-west-2
+
+# Image pull secrets for private registries
+imagePullSecrets: []
+
+# Name overrides
+nameOverride: ""
+fullnameOverride: ""
+
+# Rafiki Auth service configuration
+rafikiAuth:
+  enabled: true
+  name: rafiki-auth
+  replicaCount: 1
+  image:
+    repository: ghcr.io/interledger/rafiki-auth
+    tag: latest
+    pullPolicy: Always
+  ports:
+    main: 3006
+    grant: 3009
+    admin: 3001
+  service:
+    type: ClusterIP
+    ports:
+      main: 3006
+      grant: 3009
+      admin: 3001
+  secrets:
+    name: rafiki-auth-secrets
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+
+# Rafiki Backend service configuration
+rafikiBackend:
+  enabled: true
+  name: rafiki-backend
+  replicaCount: 1
+  image:
+    repository: ghcr.io/interledger/rafiki-backend
+    tag: latest
+    pullPolicy: Always
+  ports:
+    openPayments: 80
+    graphql: 3001
+    connector: 3002
+    admin: 3003
+    autopeering: 3004
+  service:
+    type: ClusterIP
+    ports:
+      openPayments: 80
+      graphql: 3001
+      connector: 3002
+      admin: 3003
+      autopeering: 3004
+  secrets:
+    name: rafiki-backend-secrets
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+
+# Nginx reverse proxy configuration
+nginx:
+  enabled: true
+  name: nginx
+  replicaCount: 2
+  image:
+    repository: nginx
+    tag: latest
+    pullPolicy: IfNotPresent
+  ports:
+    http: 80
+  service:
+    type: ClusterIP
+    ports:
+      http: 80
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+  configMap:
+    name: nginx-config
+  config:
+    serverNameIlp: "ilp.mycompany.com"
+    serverNameAuth: "auth-ilp.mycompany.io"
+    graphqlAllowedIps:
+      - ""
+      - ""
+
+# Redis configuration
+redis:
+  enabled: true
+  name: redis
+  replicaCount: 1
+  image:
+    repository: redis
+    tag: "7"
+    pullPolicy: IfNotPresent
+  ports:
+    redis: 6379
+  service:
+    type: ClusterIP
+    port: 6379
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Ingress configuration for AWS ALB
+ingress:
+  enabled: true
+  name: rafiki-ingress
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: "alb"
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/load-balancer-name: "aws-rafiki-alb"
+    alb.ingress.kubernetes.io/group.name: "rafiki"
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-west-2:123456789012:certificate/12345678-1234-1234-1234-123456789012"
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
+  hosts:
+    ilp:
+      host: "ilp.mycompany.com"
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceNameSuffix: nginx
+          servicePort: 80
+    auth:
+      host: "auth-ilp.mycompany.io"
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceNameSuffix: nginx
+          servicePort: 80
+  tls:
+    - secretName: rafiki-tls-secret
+      hosts:
+        - "ilp.mycompany.com"
+        - "auth-ilp.mycompany.io"
+
+# AWS-specific monitoring and logging
+monitoring:
+  enabled: true
+  cloudWatch:
+    enabled: true
+    logGroup: "/aws/eks/rafiki"
+    region: us-west-2
+  prometheus:
+    enabled: false
+
+# Security contexts for AWS EKS
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000
+
+# Pod security policy for AWS
+podSecurityContext:
+  fsGroup: 2000
+
+# Node selector for AWS EKS node groups
+nodeSelector:
+  "kubernetes.io/os": linux
+
+# Tolerations for AWS spot instances
+tolerations: []
+
+# Affinity rules for AWS availability zones
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - iaas-rafiki
+          topologyKey: kubernetes.io/hostname
+
+# AWS-specific storage configuration
+persistence:
+  enabled: false
+  storageClass: "gp3"
+  accessMode: ReadWriteOnce
+  size: 10Gi
+
+# Service account configuration for AWS IAM roles
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/EKSServiceRole"
+  name: ""
+
+# Network policy for AWS VPC
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress

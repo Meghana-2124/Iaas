@@ -84,8 +84,6 @@
     "config": {
       "serverNameIlp": "ilp.chimoney.com",
       "serverNameAuth": "auth-ilp.chimoney.io",
-      "rafikiBackendServiceHost": "{{ .Release.Name }}-rafiki-backend",
-      "rafikiAuthServiceHost": "{{ .Release.Name }}-rafiki-auth",
       "graphqlAllowedIps": [
         "35.160.120.126",
         "44.233.151.27",

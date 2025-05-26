@@ -1,0 +1,272 @@
+# GCP-specific values for iaas-rafiki Helm chart
+companyName: mycompany
+
+# Global settings
+global:
+  environment: production
+  region: us-central1
+
+# Image pull secrets for private registries
+imagePullSecrets: []
+
+# Name overrides
+nameOverride: ""
+fullnameOverride: ""
+
+# Rafiki Auth service configuration
+rafikiAuth:
+  enabled: true
+  name: rafiki-auth
+  replicaCount: 1
+  image:
+    repository: ghcr.io/interledger/rafiki-auth
+    tag: latest
+    pullPolicy: Always
+  ports:
+    main: 3006
+    grant: 3009
+    admin: 3001
+  service:
+    type: ClusterIP
+    ports:
+      main: 3006
+      grant: 3009
+      admin: 3001
+  secrets:
+    name: rafiki-auth-secrets
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+
+# Rafiki Backend service configuration
+rafikiBackend:
+  enabled: true
+  name: rafiki-backend
+  replicaCount: 1
+  image:
+    repository: ghcr.io/interledger/rafiki-backend
+    tag: latest
+    pullPolicy: Always
+  ports:
+    openPayments: 80
+    graphql: 3001
+    connector: 3002
+    admin: 3003
+    autopeering: 3004
+  service:
+    type: ClusterIP
+    ports:
+      openPayments: 80
+      graphql: 3001
+      connector: 3002
+      admin: 3003
+      autopeering: 3004
+  secrets:
+    name: rafiki-backend-secrets
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+
+# Nginx reverse proxy configuration
+nginx:
+  enabled: true
+  name: nginx
+  replicaCount: 2
+  image:
+    repository: nginx
+    tag: latest
+    pullPolicy: IfNotPresent
+  ports:
+    http: 80
+  service:
+    type: ClusterIP
+    ports:
+      http: 80
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+  configMap:
+    name: nginx-config
+  config:
+    serverNameIlp: "ilp.mycompany.com"
+    serverNameAuth: "auth-ilp.mycompany.io"
+    graphqlAllowedIps:
+      - ""
+      - ""
+      - ""
+      - ""
+
+# Redis configuration
+redis:
+  enabled: true
+  name: redis
+  replicaCount: 1
+  image:
+    repository: redis
+    tag: "7"
+    pullPolicy: IfNotPresent
+  ports:
+    redis: 6379
+  service:
+    type: ClusterIP
+    port: 6379
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Ingress configuration for GCP GKE
+ingress:
+  enabled: true
+  name: rafiki-ingress
+  className: "gce"
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: "rafiki-global-ip"
+    networking.gke.io/managed-certificates: "rafiki-ssl-cert"
+    kubernetes.io/ingress.allow-http: "false"
+    cloud.google.com/neg: '{"ingress": true}'
+    cloud.google.com/backend-config: '{"default": "rafiki-backend-config"}'
+  hosts:
+    ilp:
+      host: "ilp.mycompany.com"
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceNameSuffix: nginx
+          servicePort: 80
+    auth:
+      host: "auth-ilp.mycompany.io"
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceNameSuffix: nginx
+          servicePort: 80
+  tls:
+    - secretName: rafiki-tls-secret
+      hosts:
+        - "ilp.mycompany.com"
+        - "auth-ilp.mycompany.io"
+
+# GCP-specific monitoring and logging
+monitoring:
+  enabled: true
+  stackdriver:
+    enabled: true
+    projectId: "my-gcp-project"
+    cluster: "rafiki-cluster"
+    location: us-central1
+  prometheus:
+    enabled: false
+
+# Security contexts for GKE
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000
+
+# Pod security policy for GKE
+podSecurityContext:
+  fsGroup: 2000
+
+# Node selector for GKE node pools
+nodeSelector:
+  "kubernetes.io/os": linux
+  "cloud.google.com/gke-nodepool": default-pool
+
+# Tolerations for GCP preemptible instances
+tolerations:
+  - key: "cloud.google.com/gke-preemptible"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
+# Affinity rules for GCP zones
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - iaas-rafiki
+          topologyKey: kubernetes.io/hostname
+
+# GCP-specific storage configuration
+persistence:
+  enabled: false
+  storageClass: "ssd"
+  accessMode: ReadWriteOnce
+  size: 10Gi
+
+# Service account configuration for GCP Workload Identity
+serviceAccount:
+  create: true
+  annotations:
+    iam.gke.io/gcp-service-account: "rafiki-sa@my-gcp-project.iam.gserviceaccount.com"
+  name: ""
+
+# Network policy for GCP VPC
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress
+
+# GCP-specific configurations
+gcp:
+  workloadIdentity:
+    enabled: true
+    serviceAccountEmail: "rafiki-sa@my-gcp-project.iam.gserviceaccount.com"
+  managedCertificate:
+    enabled: true
+    name: "rafiki-ssl-cert"
+    domains:
+      - "ilp.mycompany.com"
+      - "auth-ilp.mycompany.io"
+  backendConfig:
+    enabled: true
+    name: "rafiki-backend-config"
+    healthCheck:
+      checkIntervalSec: 10
+      timeoutSec: 5
+      healthyThreshold: 1
+      unhealthyThreshold: 3
+      type: HTTP
+      requestPath: /healthz
+      port: 80

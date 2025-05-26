@@ -1,0 +1,129 @@
+# Default values for iaas-rafiki Helm chart
+# This is used for basic linting. Use values-aws.yaml or values-gcp.yaml for actual deployments.
+
+companyName: mycompany
+
+rafikiAuth:
+  enabled: true
+  name: rafiki-auth
+  image:
+    repository: ghcr.io/interledger/rafiki-auth
+    tag: v1.0.0-alpha.20
+    pullPolicy: IfNotPresent
+  ports:
+    main: 3006
+    grant: 3009
+    admin: 3001
+  service:
+    type: ClusterIP
+    ports:
+      main: 3006
+      grant: 3009
+      admin: 3001
+  secrets:
+    name: rafiki-auth-secrets
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  hpa:
+    enabled: false
+
+rafikiBackend:
+  enabled: true
+  name: rafiki-backend
+  image:
+    repository: ghcr.io/interledger/rafiki-backend
+    tag: v1.0.0-alpha.20
+    pullPolicy: IfNotPresent
+  ports:
+    openPayments: 80
+    graphql: 3001
+    connector: 3002
+    admin: 3003
+    autopeering: 3004
+  service:
+    type: ClusterIP
+    ports:
+      openPayments: 80
+      graphql: 3001
+      connector: 3002
+      admin: 3003
+      autopeering: 3004
+  secrets:
+    name: rafiki-backend-secrets
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  hpa:
+    enabled: false
+
+nginx:
+  enabled: true
+  name: nginx
+  image:
+    repository: nginx
+    tag: latest
+    pullPolicy: IfNotPresent
+  ports:
+    http: 80
+  service:
+    type: ClusterIP
+    ports:
+      http: 80
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  hpa:
+    enabled: false
+  configMap:
+    name: nginx-config
+  config:
+    serverNameIlp: "ilp.mycompany.com"
+    serverNameAuth: "auth-ilp.mycompany.io"
+
+redis:
+  enabled: true
+  name: redis
+  image:
+    repository: redis
+    tag: 7-alpine
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 6379
+  ports:
+    redis: 6379
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+ingress:
+  enabled: true
+  name: rafiki-ingress
+  className: "nginx"
+  annotations: {}
+  hosts:
+    ilp:
+      host: "ilp.mycompany.com"
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceNameSuffix: nginx
+          servicePort: 80
+  tls: []
