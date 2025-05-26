@@ -52,7 +52,7 @@ let k8sProvider: k8s.Provider;
 let dependsOnResources: any[] = [];
 
 if (cloudProvider === "aws") {
-  cluster = awsInfra.createEksCluster(`${companyName}-rafiki-eks`, stack);
+  cluster = awsInfra.createEksCluster(`${companyName}-rafik`, stack);
   k8sProvider = new k8s.Provider("k8s-provider-aws", {
     kubeconfig: cluster.kubeconfig,
   });
@@ -79,7 +79,7 @@ if (cloudProvider === "aws") {
   dependsOnResources.push(awsLoadBalancerControllerChart);
   pulumi.log.info("AWS Load Balancer Controller deployment initiated.");
 } else if (cloudProvider === "gcp") {
-  cluster = gcpInfra.createGkeCluster(`${companyName}-rafiki-gke`, stack);
+  cluster = gcpInfra.createGkeCluster(`${companyName}-rafiki`, stack);
   k8sProvider = new k8s.Provider("k8s-provider-gcp", {
     kubeconfig: cluster.kubeconfig,
   });
