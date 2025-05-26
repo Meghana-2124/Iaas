@@ -149,7 +149,7 @@ export class DeploymentMonitor {
   }
 
   private async checkCloudCredentials(): Promise<void> {
-    const cloudProvider = process.env.CLOUD_PROVIDER || "aws";
+    const cloudProvider = process.env.CLOUD_PROVIDER || "gcp";
 
     try {
       if (cloudProvider === "aws") {
@@ -260,7 +260,7 @@ export class DeploymentMonitor {
   }
 
   private async checkNetworkConnectivity(): Promise<void> {
-    const cloudProvider = process.env.CLOUD_PROVIDER || "aws";
+    const cloudProvider = process.env.CLOUD_PROVIDER || "gcp";
 
     try {
       const testUrls =

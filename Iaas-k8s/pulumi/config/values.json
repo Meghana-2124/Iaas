@@ -1,20 +1,21 @@
 {
-  "replicaCount": 2,
+  "companyName": "mycompany",
+  "global": {
+    "environment": "production",
+    "region": "us-central1"
+  },
   "imagePullSecrets": [],
   "nameOverride": "",
   "fullnameOverride": "",
-  "global": {
-    "environment": "development"
-  },
   "rafikiAuth": {
     "enabled": true,
     "name": "rafiki-auth",
+    "replicaCount": 1,
     "image": {
       "repository": "ghcr.io/interledger/rafiki-auth",
       "tag": "latest",
       "pullPolicy": "Always"
     },
-    "replicaCount": 1,
     "ports": {
       "main": 3006,
       "grant": 3009,
@@ -30,17 +31,34 @@
     },
     "secrets": {
       "name": "rafiki-auth-secrets"
+    },
+    "resources": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      }
+    },
+    "hpa": {
+      "enabled": true,
+      "minReplicas": 1,
+      "maxReplicas": 5,
+      "targetCPUUtilizationPercentage": 80,
+      "targetMemoryUtilizationPercentage": 80
     }
   },
   "rafikiBackend": {
     "enabled": true,
     "name": "rafiki-backend",
+    "replicaCount": 1,
     "image": {
       "repository": "ghcr.io/interledger/rafiki-backend",
       "tag": "latest",
       "pullPolicy": "Always"
     },
-    "replicaCount": 1,
     "ports": {
       "openPayments": 80,
       "graphql": 3001,
@@ -60,30 +78,65 @@
     },
     "secrets": {
       "name": "rafiki-backend-secrets"
+    },
+    "resources": {
+      "limits": {
+        "cpu": "1000m",
+        "memory": "1Gi"
+      },
+      "requests": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      }
+    },
+    "hpa": {
+      "enabled": true,
+      "minReplicas": 1,
+      "maxReplicas": 5,
+      "targetCPUUtilizationPercentage": 80,
+      "targetMemoryUtilizationPercentage": 80
     }
   },
   "nginx": {
     "enabled": true,
     "name": "nginx",
+    "replicaCount": 2,
     "image": {
       "repository": "nginx",
       "tag": "latest",
       "pullPolicy": "IfNotPresent"
     },
-    "replicaCount": 2,
     "ports": {
       "http": 80
     },
     "service": {
       "type": "ClusterIP",
-      "port": 80
+      "port": {
+        "http": 80
+      }
+    },
+    "resources": {
+      "limits": {
+        "cpu": "200m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "100m",
+        "memory": "128Mi"
+      }
+    },
+    "hpa": {
+      "enabled": true,
+      "minReplicas": 2,
+      "maxReplicas": 10,
+      "targetCPUUtilizationPercentage": 80
     },
     "configMap": {
-      "name": "nginx-conf"
+      "name": "nginx-config"
     },
     "config": {
-      "serverNameIlp": "ilp.chimoney.com",
-      "serverNameAuth": "auth-ilp.chimoney.io",
+      "serverNameIlp": "ilp-k8s-sandbox.chimoney.com",
+      "serverNameAuth": "auth-ilp-k8s-sandbox.chimoney.io",
       "graphqlAllowedIps": [
         "35.160.120.126",
         "44.233.151.27",
@@ -95,28 +148,44 @@
   "redis": {
     "enabled": true,
     "name": "redis",
+    "replicaCount": 1,
     "image": {
       "repository": "redis",
       "tag": "7",
       "pullPolicy": "IfNotPresent"
     },
-    "replicaCount": 1,
     "ports": {
       "redis": 6379
     },
     "service": {
       "type": "ClusterIP",
       "port": 6379
+    },
+    "resources": {
+      "limits": {
+        "cpu": "200m",
+        "memory": "256Mi"
+      },
+      "requests": {
+        "cpu": "100m",
+        "memory": "128Mi"
+      }
     }
   },
   "ingress": {
     "enabled": true,
     "name": "rafiki-ingress",
     "className": "gce",
-    "annotations": {},
+    "annotations": {
+      "kubernetes.io/ingress.class": "gce",
+      "kubernetes.io/ingress.global-static-ip-name": "rafiki-global-ip",
+      "kubernetes.io/ingress.allow-http": "false",
+      "cloud.google.com/neg": "{\"ingress\": true}",
+      "cloud.google.com/backend-config": "{\"default\": \"rafiki-backend-config\"}"
+    },
     "hosts": {
       "ilp": {
-        "host": "ilp.chimoney.com",
+        "host": "ilp-k8s-sandbox.chimoney.com",
         "paths": [
           {
             "path": "/",
@@ -127,7 +196,7 @@
         ]
       },
       "auth": {
-        "host": "auth-ilp.chimoney.io",
+        "host": "auth-ilp-k8s-sandbox.chimoney.io",
         "paths": [
           {
             "path": "/",
@@ -139,29 +208,19 @@
       }
     }
   },
-  "kubernetesSecrets": {
-    "rafikiAuth": {
-      "create": true,
-      "name": "{{ .Values.rafikiAuth.secrets.name }}"
-    },
-    "rafikiBackend": {
-      "create": true,
-      "name": "{{ .Values.rafikiBackend.secrets.name }}"
+  "gcp": {
+    "backendConfig": {
+      "enabled": true,
+      "name": "rafiki-backend-config",
+      "healthCheck": {
+        "checkIntervalSec": 10,
+        "timeoutSec": 5,
+        "healthyThreshold": 1,
+        "unhealthyThreshold": 3,
+        "type": "HTTP",
+        "requestPath": "/healthz",
+        "port": 80
+      }
     }
-  },
-  "environment": "development",
-  "resources": {
-    "requests": {
-      "cpu": "100m",
-      "memory": "128Mi"
-    },
-    "limits": {
-      "cpu": "500m",
-      "memory": "512Mi"
-    }
-  },
-  "image": {
-    "tag": "latest",
-    "pullPolicy": "Always"
   }
 }

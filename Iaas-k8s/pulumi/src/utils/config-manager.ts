@@ -1,6 +1,5 @@
 import { automation } from "@pulumi/pulumi";
 import type {
-  DeploymentOptions,
   AwsCloudConfig,
   GcpCloudConfig,
   CloudConfig,
@@ -214,75 +213,4 @@ export class PulumiConfigManager {
     }
   }
 
-  /**
-   * Detect cloud provider from environment or configuration
-   */
-  static detectCloudProvider(): "aws" | "gcp" | null {
-    // Check environment variables
-    if (
-      process.env.AWS_REGION ||
-      process.env.AWS_PROFILE ||
-      process.env.AWS_ACCESS_KEY_ID
-    ) {
-      return "aws";
-    }
-
-    if (
-      process.env.GOOGLE_APPLICATION_CREDENTIALS ||
-      process.env.GCLOUD_PROJECT
-    ) {
-      return "gcp";
-    }
-
-    return null;
-  }
-
-  /**
-   * Create default cloud configuration based on environment
-   */
-  static createDefaultCloudConfig(cloudProvider: "aws" | "gcp"): CloudConfig {
-    if (cloudProvider === "aws") {
-      return {
-        region: process.env.AWS_REGION || "us-east-1",
-        profile: process.env.AWS_PROFILE,
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-      } as AwsCloudConfig;
-    } else {
-      return {
-        project:
-          process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || "",
-        region: process.env.GCLOUD_REGION || "us-central1",
-        zone: process.env.GCLOUD_ZONE || "us-central1-a",
-        credentials: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-      } as GcpCloudConfig;
-    }
-  }
-
-  /**
-   * Validate cloud configuration
-   */
-  static validateCloudConfig(
-    cloudProvider: "aws" | "gcp",
-    config: CloudConfig
-  ): string[] {
-    const errors: string[] = [];
-
-    if (cloudProvider === "aws") {
-      const awsConfig = config as AwsCloudConfig;
-      if (!awsConfig.region) {
-        errors.push("AWS region is required");
-      }
-    } else if (cloudProvider === "gcp") {
-      const gcpConfig = config as GcpCloudConfig;
-      if (!gcpConfig.project) {
-        errors.push("GCP project is required");
-      }
-      if (!gcpConfig.region) {
-        errors.push("GCP region is required");
-      }
-    }
-
-    return errors;
-  }
 }

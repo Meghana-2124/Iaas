@@ -100,7 +100,7 @@ nginx:
     http: 80
   service:
     type: ClusterIP
-    ports:
+    port:
       http: 80
   resources:
     limits:

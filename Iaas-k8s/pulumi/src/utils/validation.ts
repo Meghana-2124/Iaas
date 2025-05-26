@@ -208,27 +208,6 @@ export function validateSecretsStructure(
   try {
     const secrets = JSON.parse(secretsJson);
 
-    // Check for required secret fields (customize based on your needs)
-    const requiredSecrets = ["dbPassword"];
-    const recommendedSecrets = ["jwtSecret", "redisPassword"];
-
-    for (const required of requiredSecrets) {
-      if (!secrets[required]) {
-        errors.push({
-          field: `secrets.${required}`,
-          message: `Required secret '${required}' is missing`,
-          value: undefined,
-        });
-      }
-    }
-
-    for (const recommended of recommendedSecrets) {
-      if (!secrets[recommended]) {
-        // This is a warning, not an error
-        console.warn(`Recommended secret '${recommended}' is missing`);
-      }
-    }
-
     // Validate secret values are not empty
     for (const [key, value] of Object.entries(secrets)) {
       if (typeof value === "string" && value.trim() === "") {
