@@ -160,18 +160,8 @@ async function main() {
           timeout: args.timeout,
         };
         try {
-          const result = await handleDeployment(options);
-          if (result.success) {
-            console.log("Deployment successful!");
-            if (result.outputs) {
-              console.log("Outputs:", JSON.stringify(result.outputs, null, 2));
-            }
-          } else {
-            console.error("Deployment failed:", result.error);
-            process.exit(1);
-          }
+          await handleDeployment(options);
         } catch (err) {
-          console.error("Deployment error:", err);
           process.exit(1);
         }
       }

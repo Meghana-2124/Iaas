@@ -52,7 +52,7 @@ let k8sProvider: k8s.Provider;
 let dependsOnResources: any[] = [];
 
 if (cloudProvider === "aws") {
-  cluster = awsInfra.createEksCluster(`${companyName}-rafik`, stack);
+  cluster = awsInfra.createEksCluster(`${companyName}-rafiki`, stack);
   k8sProvider = new k8s.Provider("k8s-provider-aws", {
     kubeconfig: cluster.kubeconfig,
   });
