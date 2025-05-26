@@ -9,7 +9,7 @@ import {
   ConfigValidationError,
   validateDeploymentConfig,
   ConsoleLogger,
-} from "../../automation.js";
+} from "../index.js";
 import * as fs from "fs";
 
 // =============================================================================
