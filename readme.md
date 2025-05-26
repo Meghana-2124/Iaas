@@ -27,17 +27,17 @@ A comprehensive multi-cloud Kubernetes infrastructure deployment solution suppor
 
    - `config/secrets.json` (sensitive values)
    - `config/values.json` (non-sensitive values)
-   - `config/cloudConfig.aws.json` or `config/cloudConfig.gcp.json` (cloud provider config)
+   - `config/aws.json` or `config/gcp.json` (cloud provider config)
 
-5. **Run a deployment (example for AWS)**:
+5. **Run a deployment (example for GCP)**:
 
    ```bash
    npm run dev -- up dev \
      --companyName mycompany \
      --secretsFile ./config/secrets.json \
      --valuesFile ./config/values.json \
-     --cloudProvider aws \
-     --cloudConfigFile ./config/cloudConfig.aws.json \
+     --cloudProvider gcp \
+     --cloudConfigFile ./config/gcp.json \
      --autoSetupConfig
    ```
 
@@ -94,8 +94,8 @@ Iaas/
      --companyName mycompany \
      --secretsFile ./config/secrets.json \
      --valuesFile ./config/values.json \
-     --cloudProvider aws \
-     --cloudConfigFile ./config/cloudConfig.aws.json \
+     --cloudProvider gcp \
+     --cloudConfigFile ./config/gcp.json \
      --autoSetupConfig
    ```
    > Use `--secretsFile`, `--valuesFile`, and `--cloudConfigFile` to provide all configuration as JSON files. This is the recommended and most secure approach. See the Pulumi README for full details and examples.

@@ -350,10 +350,10 @@ export async function handleDeployment(
   // Determine project name (e.g., from package.json or a fixed value)
   // For now, let's assume a fixed project name. Replace with dynamic determination if needed.
   const projectName = "iaas-k8s"; // Placeholder: Replace with actual project name
-  const organizationName = companyName; // Assuming companyName is the organization
+  const organizationName = "organization"; // Using "organization" as per error message
 
   // Construct the fully qualified stack name
-  const fullyQualifiedStackName = `${organizationName}/${projectName}/${stackName}`;
+  const fullyQualifiedStackName = `${organizationName}/${projectName}/${companyName}-${stackName}`;
 
   // Initialize logger and progress callback
   const logger = new ConsoleLogger(logLevel);
@@ -563,10 +563,9 @@ export async function handleDeployment(
           const errorMessages = secretsValidation.errors
             .map((e) => `${e.field}: ${e.message}`)
             .join(", ");
-          throw new DeploymentError(
-            `Secrets validation failed: ${errorMessages}`,
-            "SECRETS_VALIDATION_ERROR",
-            { errors: secretsValidation.errors }
+          throw new ConfigValidationError(
+            `Secrets validation failed during configuration setup: ${errorMessages}`,
+            secretsValidation.errors
           );
         }
 
@@ -593,9 +592,8 @@ export async function handleDeployment(
           "Set helmSecretsJson configuration with base64 encoded secrets (as secret)"
         );
 
-        // Set values JSON if provided
+        // Set Helm values JSON if provided
         if (valuesJson) {
-          const parsedValues = JSON.parse(valuesJson);
           await stack!.setConfig("helmValuesJson", { value: valuesJson });
           logger.info("Set helmValuesJson configuration");
         }
@@ -604,10 +602,35 @@ export async function handleDeployment(
         await stack!.setConfig("companyName", { value: companyName });
         logger.info("Set companyName configuration");
 
-        // Set cloud provider config if available
-        const cloudProvider = process.env.CLOUD_PROVIDER || "aws";
-        await stack!.setConfig("cloudProvider", { value: cloudProvider });
-        logger.debug(`Set cloudProvider configuration: ${cloudProvider}`);
+        // Set cloud provider config
+        // Use options.cloudProvider which comes from CLI arguments.
+        if (options.cloudProvider) {
+          await stack!.setConfig("cloudProvider", {
+            value: options.cloudProvider,
+          });
+          logger.debug(
+            `Set cloudProvider configuration: ${options.cloudProvider}`
+          );
+        } else {
+          // cloudProvider is optional in DeploymentOptions.
+          // Defaulting to 'aws' if not provided, with a warning.
+          const fallbackCloudProvider = "aws";
+          logger.warn(
+            `options.cloudProvider is undefined. Defaulting to '${fallbackCloudProvider}' for 'cloudProvider' config. Ensure this is the intended behavior.`
+          );
+          await stack!.setConfig("cloudProvider", {
+            value: fallbackCloudProvider,
+          });
+          logger.debug(
+            `Set cloudProvider configuration (fallback): ${fallbackCloudProvider}`
+          );
+        }
+
+        // Set Helm chart path if provided
+        if (helmChartPath) {
+          await stack!.setConfig("helmChartPath", { value: helmChartPath });
+          logger.info("Set helmChartPath configuration");
+        }
       },
       logger,
       "configuration setup"
@@ -766,7 +789,10 @@ async function executeDeploymentAction(
 
     case "preview":
       logger.info(`Running pulumi preview for stack: ${stackName}...`);
-      await stack.preview({ onOutput: (output) => logger.debug(output) });
+      await stack.preview({
+        onOutput: (output) => logger.debug(output),
+        onError: (error) => logger.error(error),
+      });
       logger.info("Preview finished successfully");
       return {};
 

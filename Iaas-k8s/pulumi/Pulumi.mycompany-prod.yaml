@@ -1,0 +1,180 @@
+config:
+  iaas:cloudProvider: gcp
+  iaas-k8s:companyName: mycompany
+  gcp:project: YOUR_GCP_PROJECT_ID
+  gcp:region: us-central1
+  gcp:zone: us-central1-a
+  iaas-k8s:helmSecretsJson:
+    secure: v1:neOJ1pdB17WAy+JS:C1cfdrRgXS6Rjh9CmXXl/B70RzF5Wx+CawdxTLYFHTOBG2sFcemf1nf2GyflhAyEbBstBViwKNmAljqlRODoIU5HCHXjOGCsicMuE0PJbFK/+qiJkc8MKfdBm70wckmpuRotTADdzIsN3DzquST0NEzJEFwxVvT8H23+WIjIhKnF0EubhRIAeMTUR8yPJndmJBTdOkua2g5WI4iaa/oQJ12dvGSrQtVDH1/kAdkDiy3KdWHKoTram2XN01MyvgSj+NDABskETXz0SF+KZiEjO788SW2+dfdlhfHng1fkDUvr14noDIf3erP7oN/CTQkKLsbs/AwzPr67Pf6MgXcasCS/ozY93kQ+NiKwpqpN7tIcBk3aZd9WeMaR9HTEOCE2yN99gV4/Np2ahZxE6VaqqmjehplLDu8q9BFo3DfMGcSs3iKWOtYgya7dl+ffcTmTAIf3jbVItTTR1f9FZJw0jcmAIYSQXDvMO9VIWH1UoL8Nl9s+17DTsK+5J3DCF1KH/gvKsYT9TorS6WnpA9qNQAmn/mahWXjOXLToTIXaUr5I8tbHL8p8PQDvLvgWMlwL7puynFYzgtwRLd1IvX1fwa7r/YZ2clx1Aox3W+vk0bZ9prBFQ6MNagw6CGKioENT4ucepLZ4rIVyffU9qUqXG9UpNEzqo+RtQ+58dJv+2izSg2U4xDuS0RuXQCoxL6AxXDZ0NeCvGllTifqHg0cg1jYas3hXrgQKxBkVFh5ghUnogH+k3ch/baYYYnFGh7l7QIEDCcSrLPP9udCbd03zBYxTq/RXPoYQF7MKr/ZV/1QkYtGxUHk3c+7dw5/8/kP0femcg/GIyBD0g/s4rQlRMyVcKS1e5xKWEPFxB7dBLvVEI5UGCBEUTAqrQX7IbKqPoDdOt3RZB5xsza/MR2d65i8tOWRkCoq/VJuJBbn+GhTmNDOLljVNOKY4qSLLvbTQDrzX0sGQojThr16aTzCTgQzy9uPiibrmEO7pFRxhVfCXrQ4JUhNdBTEJFNS8kgPKIVMO6YeCxw9nDKYvZ3JdjGyn79X5Gb4CJrSQ+q7GuNJnmzk+1wX+Ui2Mts+sXlf3zPsTHkWr0DneRV5CwFY6zLfiaiZJAGe4Ak4HVnJ529+kc1U2GVY2Vxf4DLlkfo9VCURpWFY8R95tx4kekfIZIJ6v2Bf9uIq1ZMC43WNjUXCTS/VDYjRQzx0ExnnSCzC0h4srjutO43NT1U01NWY8tfEg59GDqFErD4dcsjUw0rh0LjlHtDBdpnP8RV134vKxoGo8rCX8r/f6o/0GGHU6kUPk5t5PUZt/TL/ZLPRf1eP20fQAYKCGRDW6vlEwYw==
+  iaas-k8s:helmValuesJson: |
+    {
+      "replicaCount": 2,
+      "imagePullSecrets": [],
+      "nameOverride": "",
+      "fullnameOverride": "",
+      "global": {
+        "environment": "development"
+      },
+      "rafikiAuth": {
+        "enabled": true,
+        "name": "rafiki-auth",
+        "image": {
+          "repository": "ghcr.io/interledger/rafiki-auth",
+          "tag": "latest",
+          "pullPolicy": "Always"
+        },
+        "replicaCount": 1,
+        "ports": {
+          "main": 3006,
+          "grant": 3009,
+          "admin": 3001
+        },
+        "service": {
+          "type": "ClusterIP",
+          "ports": {
+            "main": 3006,
+            "grant": 3009,
+            "admin": 3001
+          }
+        },
+        "secrets": {
+          "name": "rafiki-auth-secrets"
+        }
+      },
+      "rafikiBackend": {
+        "enabled": true,
+        "name": "rafiki-backend",
+        "image": {
+          "repository": "ghcr.io/interledger/rafiki-backend",
+          "tag": "latest",
+          "pullPolicy": "Always"
+        },
+        "replicaCount": 1,
+        "ports": {
+          "openPayments": 80,
+          "graphql": 3001,
+          "connector": 3002,
+          "admin": 3003,
+          "autopeering": 3004
+        },
+        "service": {
+          "type": "ClusterIP",
+          "ports": {
+            "openPayments": 80,
+            "graphql": 3001,
+            "connector": 3002,
+            "admin": 3003,
+            "autopeering": 3004
+          }
+        },
+        "secrets": {
+          "name": "rafiki-backend-secrets"
+        }
+      },
+      "nginx": {
+        "enabled": true,
+        "name": "nginx",
+        "image": {
+          "repository": "nginx",
+          "tag": "latest",
+          "pullPolicy": "IfNotPresent"
+        },
+        "replicaCount": 2,
+        "ports": {
+          "http": 80
+        },
+        "service": {
+          "type": "ClusterIP",
+          "port": 80
+        },
+        "configMap": {
+          "name": "nginx-conf"
+        },
+        "config": {
+          "serverNameIlp": "ilp.chimoney.com",
+          "serverNameAuth": "auth-ilp.chimoney.io",
+          "rafikiBackendServiceHost": "{{ .Release.Name }}-rafiki-backend",
+          "rafikiAuthServiceHost": "{{ .Release.Name }}-rafiki-auth",
+          "graphqlAllowedIps": [
+            "35.160.120.126",
+            "44.233.151.27",
+            "34.211.200.85",
+            "34.66.77.227"
+          ]
+        }
+      },
+      "redis": {
+        "enabled": true,
+        "name": "redis",
+        "image": {
+          "repository": "redis",
+          "tag": "7",
+          "pullPolicy": "IfNotPresent"
+        },
+        "replicaCount": 1,
+        "ports": {
+          "redis": 6379
+        },
+        "service": {
+          "type": "ClusterIP",
+          "port": 6379
+        }
+      },
+      "ingress": {
+        "enabled": true,
+        "name": "rafiki-ingress",
+        "className": "gce",
+        "annotations": {},
+        "hosts": {
+          "ilp": {
+            "host": "ilp.chimoney.com",
+            "paths": [
+              {
+                "path": "/",
+                "pathType": "Prefix",
+                "serviceNameSuffix": "nginx",
+                "servicePort": 80
+              }
+            ]
+          },
+          "auth": {
+            "host": "auth-ilp.chimoney.io",
+            "paths": [
+              {
+                "path": "/",
+                "pathType": "Prefix",
+                "serviceNameSuffix": "nginx",
+                "servicePort": 80
+              }
+            ]
+          }
+        }
+      },
+      "kubernetesSecrets": {
+        "rafikiAuth": {
+          "create": true,
+          "name": "{{ .Values.rafikiAuth.secrets.name }}"
+        },
+        "rafikiBackend": {
+          "create": true,
+          "name": "{{ .Values.rafikiBackend.secrets.name }}"
+        }
+      },
+      "environment": "development",
+      "resources": {
+        "requests": {
+          "cpu": "100m",
+          "memory": "128Mi"
+        },
+        "limits": {
+          "cpu": "500m",
+          "memory": "512Mi"
+        }
+      },
+      "image": {
+        "tag": "latest",
+        "pullPolicy": "Always"
+      }
+    }
+  iaas-k8s:cloudProvider: gcp
+encryptionsalt: v1:M74nmj7l5gQ=:v1:bJCJKHU791ukR3F3:9LRe/aLIIl7yLSJC9sjzLdpQGREd9Q==

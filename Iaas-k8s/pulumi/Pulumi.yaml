@@ -1,0 +1,4 @@
+name: iaas-k8s
+runtime: nodejs
+description: IaaS K8s Pulumi project
+main: dist/index.js

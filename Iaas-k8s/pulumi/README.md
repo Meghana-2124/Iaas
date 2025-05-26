@@ -26,7 +26,7 @@ This is a **TypeScript package** for deploying Kubernetes infrastructure across 
 
    - `config/secrets.json`
    - `config/values.json`
-   - `config/cloudConfig.aws.json` or `config/cloudConfig.gcp.json`
+   - `config/aws.json` or `config/gcp.json`
 
 5. **Run a deployment (CLI example)**:
 
@@ -35,8 +35,8 @@ This is a **TypeScript package** for deploying Kubernetes infrastructure across 
      --companyName mycompany \
      --secretsFile ./config/secrets.json \
      --valuesFile ./config/values.json \
-     --cloudProvider aws \
-     --cloudConfigFile ./config/cloudConfig.aws.json \
+     --cloudProvider gcp \
+     --cloudConfigFile ./config/gcp.json \
      --autoSetupConfig
    ```
 

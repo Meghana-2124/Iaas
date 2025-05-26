@@ -3,6 +3,11 @@ import * as gcpInfra from "./src/core/gcp-infra.js";
 import * as pulumi from "@pulumi/pulumi";
 import * as k8s from "@pulumi/kubernetes";
 import * as path from "path";
+import { fileURLToPath } from "url";
+
+// Define __filename and __dirname for ES module scope
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const stack = pulumi.getStack();
 const generalConfig = new pulumi.Config();
@@ -97,32 +102,74 @@ export const gcpZone = gcpZoneOutput;
 export const staticIpName = staticIpNameOutput; // Export staticIpName (GCP specific)
 
 function loadAndMergeValues(secretsJson?: string, valuesJson?: string): any {
-  let mergedValues = {};
+  let mergedValues: { [key: string]: any } = {}; // Explicitly type mergedValues
 
   if (secretsJson) {
     try {
       const secrets = JSON.parse(secretsJson);
-      mergedValues = { ...mergedValues, ...secrets };
-      pulumi.log.info("Merged secrets from helmSecretsJson config.");
+      // Deep merge secrets into mergedValues
+      for (const key in secrets) {
+        if (secrets.hasOwnProperty(key)) {
+          if (
+            typeof secrets[key] === "object" &&
+            secrets[key] !== null &&
+            !Array.isArray(secrets[key]) &&
+            mergedValues[key] &&
+            typeof mergedValues[key] === "object"
+          ) {
+            mergedValues[key] = { ...mergedValues[key], ...secrets[key] };
+          } else {
+            mergedValues[key] = secrets[key];
+          }
+        }
+      }
+      pulumi.log.info("Successfully loaded and merged helmSecretsJson.");
     } catch (e: any) {
       pulumi.log.error(
-        `Critical: Failed to parse helmSecretsJson in Pulumi program: ${e.message}. This should have been caught by the automation script.`
+        `Critical: Failed to parse helmSecretsJson. Error: ${e.message}. Ensure it's valid JSON.`
       );
     }
   } else {
-    pulumi.log.error(
-      "Critical: helmSecretsJson was not provided to the Pulumi program. The automation script should enforce this."
+    pulumi.log.warn(
+      "Warning: helmSecretsJson was not provided. Proceeding without secrets. This is not recommended for production."
     );
   }
 
   if (valuesJson) {
     try {
       const values = JSON.parse(valuesJson);
-      mergedValues = { ...mergedValues, ...values };
-      pulumi.log.info("Merged values from helmValuesJson config.");
+      // Deep merge values into mergedValues
+      for (const key in values) {
+        if (values.hasOwnProperty(key)) {
+          if (
+            typeof values[key] === "object" &&
+            values[key] !== null &&
+            !Array.isArray(values[key]) &&
+            mergedValues[key] &&
+            typeof mergedValues[key] === "object"
+          ) {
+            // If the key exists in mergedValues and both are objects, merge them
+            mergedValues[key] = { ...mergedValues[key], ...values[key] };
+          } else if (
+            secretsJson &&
+            JSON.parse(secretsJson).hasOwnProperty(key) &&
+            typeof mergedValues[key] === "object" &&
+            typeof values[key] === "object"
+          ) {
+            // If the key is from secrets and is an object, and the new value is also an object,
+            // merge the new value into the existing secret object (secrets take precedence for top-level keys, but object properties can be added/overridden by values)
+            mergedValues[key] = { ...values[key], ...mergedValues[key] };
+          } else if (!mergedValues.hasOwnProperty(key)) {
+            // If the key does not exist in mergedValues (i.e., not set by secrets), add it
+            mergedValues[key] = values[key];
+          }
+          // If the key was set by secrets and is not an object, valuesJson will not overwrite it.
+        }
+      }
+      pulumi.log.info("Successfully loaded and merged helmValuesJson.");
     } catch (e: any) {
       pulumi.log.error(
-        `Critical: Failed to parse helmValuesJson in Pulumi program: ${e.message}. This should have been caught by the automation script.`
+        `Critical: Failed to parse helmValuesJson. Error: ${e.message}. Ensure it's valid JSON.`
       );
     }
   } else {

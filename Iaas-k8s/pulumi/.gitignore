@@ -47,3 +47,5 @@ temp/
 # Coverage reports
 coverage/
 *.lcov
+
+config/gcp-new.json

@@ -16,7 +16,7 @@
     }
   },
   "bin": {
-    "iaas-deploy": "dist/automation.js"
+    "iaas-deploy": "dist/src/cli/index.js"
   },
   "files": [
     "dist/**/*",
