@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 
 /**
- * Test script to validate dynamic secrets encoding with actual secrets.json
+ * Test script to validate dynamic secrets processing with actual secrets.json
+ * Note: Now uses stringData processing (no base64 encoding needed)
  */
 
 import fs from "fs";
 import path from "path";
-import { validateAndEncodeSecrets } from "./dist/src/utils/validation.js";
+import { validateAndProcessSecrets } from "./dist/src/utils/validation.js";
 
 console.log(
-  "🔍 Testing Dynamic Secrets Encoding with actual secrets.json...\n"
+  "🔍 Testing Dynamic Secrets Processing with actual secrets.json...\n"
 );
 
 try {
@@ -19,8 +20,8 @@ try {
 
   console.log("📄 Testing with actual secrets.json file...\n");
 
-  // Test the encoding
-  const result = validateAndEncodeSecrets(secretsContent);
+  // Test the processing
+  const result = validateAndProcessSecrets(secretsContent);
 
   console.log(
     `Validation Status: ${result.isValid ? "✅ VALID" : "❌ INVALID"}`
@@ -34,13 +35,12 @@ try {
     });
   }
 
-  if (result.encodingReport) {
-    console.log("\n📊 Encoding Report:");
+  if (result.processingReport) {
+    console.log("\n📊 Processing Report:");
     const summary = {};
-    Object.entries(result.encodingReport).forEach(([field, status]) => {
+    Object.entries(result.processingReport).forEach(([field, status]) => {
       const emoji = {
-        encoded: "🔐",
-        already_encoded: "✅",
+        processed: "✅",
         placeholder: "⚠️",
         skipped: "⏭️",
       };

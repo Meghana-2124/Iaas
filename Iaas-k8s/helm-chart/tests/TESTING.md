@@ -103,14 +103,14 @@ kubernetesSecrets:
   rafikiAuth:
     create: true
     name: rafiki-auth-secrets
-    data:
-      RAFIKI_AUTH_DATABASE_URL: cG9zdGdyZXNxbDovL3VzZXI6cGFzc0Bsb2NhbGhvc3Q6NTQzMi9kYg==
-      RAFIKI_AUTH_COOKIE_KEY: dGVzdC1jb29raWUta2V5
+    stringData:
+      RAFIKI_AUTH_DATABASE_URL: postgresql://user:pass@localhost:5432/db
+      RAFIKI_AUTH_COOKIE_KEY: auth-cookie-key
   rafikiBackend:
     create: true
     name: rafiki-backend-secrets
-    data:
-      RAFIKI_BACKEND_DATABASE_URL: cG9zdGdyZXNxbDovL3VzZXI6cGFzc0Bsb2NhbGhvc3Q6NTQzMi9iYWNrZW5k
+    stringData:
+      RAFIKI_BACKEND_DATABASE_URL: postgresql://user:pass@localhost:5432/db
 EOF
 
 # Test with secrets
@@ -204,24 +204,25 @@ kubernetesSecrets:
   rafikiAuth:
     create: true
     name: rafiki-auth-secrets
-    data:
-      RAFIKI_AUTH_DATABASE_URL: <base64-encoded-value>
+    stringData:
+      RAFIKI_AUTH_DATABASE_URL: postgresql://user:pass@localhost:5432/db
+      RAFIKI_AUTH_COOKIE_KEY: auth-cookie-key
 EOF
 
 helm template mycompany-prod . -f pulumi-style-values.yaml
 ```
 
-## Testing Secrets Encoding Integration
+## Testing Secrets Processing Integration
 
-To test the complete secrets encoding flow:
+To test the complete secrets processing flow (now using stringData):
 
 ```bash
 cd ../pulumi
 
-# Test the encoding functions
+# Test the processing functions
 node src/examples/test-secrets-encoding.mjs
 
-# Then use the encoded output in Helm
+# Then use the processed output in Helm
 # (The integration test script automates this)
 ```
 
@@ -244,9 +245,9 @@ After running tests, verify:
 ### ✅ Secrets
 
 - [ ] Secret resources are created when `create: true`
-- [ ] Secret data is base64 encoded
+- [ ] Secret data uses stringData (plain text, no base64 encoding)
 - [ ] Deployments reference secrets correctly
-- [ ] No plain-text secrets in rendered output
+- [ ] Secrets contain expected plain text values
 
 ### ✅ Services and Networking
 

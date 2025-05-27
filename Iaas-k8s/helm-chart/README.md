@@ -52,13 +52,13 @@ Secrets are managed via `templates/secret.yaml`. For manual deployment, it's rec
 ```yaml
 kubernetesSecrets:
   rafikiAuth:
-    data:
-      RAFIKI_AUTH_DATABASE_URL: "base64_encoded_prod_db_url"
-      # ... other base64 encoded secrets
+    stringData:
+      RAFIKI_AUTH_DATABASE_URL: "prod_db_url"
+      # ... other plain text secrets (no base64 encoding needed with stringData)
   rafikiBackend:
-    data:
-      RAFIKI_BACKEND_DATABASE_URL: "base64_encoded_prod_db_url"
-      # ... other base64 encoded secrets
+    stringData:
+      RAFIKI_BACKEND_DATABASE_URL: "prod_db_url"
+      # ... other plain text secrets (no base64 encoding needed with stringData)
 ```
 
 Deploy manually merging this file:

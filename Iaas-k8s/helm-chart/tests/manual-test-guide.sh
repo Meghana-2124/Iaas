@@ -36,14 +36,14 @@ kubernetesSecrets:
   rafikiAuth:
     create: true
     name: rafiki-auth-secrets
-    data:
-      RAFIKI_AUTH_DATABASE_URL: cG9zdGdyZXNxbDovL3VzZXI6cGFzc0Bsb2NhbGhvc3Q6NTQzMi9kYg==
-      RAFIKI_AUTH_COOKIE_KEY: dGVzdC1jb29raWUta2V5
+    stringData:
+      RAFIKI_AUTH_DATABASE_URL: postgresql://user:pass@localhost:5432/db
+      RAFIKI_AUTH_COOKIE_KEY: auth-cookie-key
   rafikiBackend:
     create: true
     name: rafiki-backend-secrets
-    data:
-      RAFIKI_BACKEND_DATABASE_URL: cG9zdGdyZXNxbDovL3VzZXI6cGFzc0Bsb2NhbGhvc3Q6NTQzMi9iYWNrZW5k
+    stringData:
+      RAFIKI_BACKEND_DATABASE_URL: postgresql://user:pass@localhost:5432/db
 EOL
 EOF
 echo ""
@@ -51,14 +51,11 @@ echo "   Test the secrets template:"
 echo "   helm template testrelease . -f test-secrets.yaml --show-only templates/secret.yaml"
 echo ""
 
-echo -e "${YELLOW}3. Validate Base64 Encoding:${NC}"
-echo "   Verify that your secrets are properly base64 encoded"
+echo -e "${YELLOW}3. Validate stringData Usage:${NC}"
+echo "   Verify that your secrets use stringData (plain text, no base64 encoding needed)"
 echo ""
-echo "   Encode a secret:"
-echo "   echo -n 'your-secret-value' | base64"
-echo ""
-echo "   Decode to verify:"
-echo "   echo 'cG9zdGdyZXNxbDovL3VzZXI6cGFzc0Bsb2NhbGhvc3Q6NTQzMi9kYg==' | base64 -d"
+echo "   Check rendered secret:"
+echo "   helm template testrelease . -f test-secrets.yaml --show-only templates/secret.yaml | grep -A 10 stringData"
 echo ""
 
 echo -e "${YELLOW}4. Test with AWS/GCP Values:${NC}"

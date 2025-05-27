@@ -4,8 +4,7 @@ import {
   validateDeploymentOptionsWithZod,
   validateSecretsStructure,
   validateValuesStructure,
-  validateAndEncodeSecrets,
-  encodeSecretsForKubernetes,
+  validateAndProcessSecrets,
 } from "../utils/validation.js";
 import { DeploymentMonitor } from "../utils/monitoring.js";
 import { PulumiConfigManager } from "../utils/config-manager.js";
@@ -555,11 +554,11 @@ export async function handleDeployment(
     // Set configuration with validation and encoding
     await withErrorHandling(
       async () => {
-        // Validate and encode secrets JSON for Kubernetes
+        // Validate and process secrets JSON for Kubernetes (using stringData - no encoding needed)
         logger.info(
-          "Validating and encoding secrets for Kubernetes deployment..."
+          "Validating and processing secrets for Kubernetes deployment..."
         );
-        const secretsValidation = validateAndEncodeSecrets(secretsJson);
+        const secretsValidation = validateAndProcessSecrets(secretsJson);
 
         if (!secretsValidation.isValid) {
           const errorMessages = secretsValidation.errors
@@ -571,27 +570,27 @@ export async function handleDeployment(
           );
         }
 
-        // Log encoding report if available
-        if (secretsValidation.encodingReport) {
-          const encodingStats = Object.entries(
-            secretsValidation.encodingReport
+        // Log processing report if available
+        if (secretsValidation.processingReport) {
+          const processingStats = Object.entries(
+            secretsValidation.processingReport
           ).reduce((acc, [key, status]) => {
             acc[status] = (acc[status] || 0) + 1;
             return acc;
           }, {} as Record<string, number>);
 
           logger.info(
-            `Secret encoding complete: ${JSON.stringify(encodingStats)}`
+            `Secret processing complete: ${JSON.stringify(processingStats)}`
           );
         }
 
-        // Set the encoded secrets JSON
+        // Set the processed secrets JSON (plain text for stringData)
         await stack!.setConfig("helmSecretsJson", {
-          value: secretsValidation.encodedSecretsJson,
+          value: secretsValidation.processedSecretsJson,
           secret: true,
         });
         logger.info(
-          "Set helmSecretsJson configuration with base64 encoded secrets (as secret)"
+          "Set helmSecretsJson configuration with processed secrets for stringData (as secret)"
         );
 
         // Set Helm values JSON if provided

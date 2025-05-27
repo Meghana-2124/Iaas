@@ -5,7 +5,7 @@ import type {
   CloudConfig,
   Logger,
 } from "../types/index.js";
-import { validateAndEncodeSecrets } from "./validation.js";
+import { validateAndProcessSecrets } from "./validation.js";
 
 export interface PulumiConfigSetup {
   stackName: string;
@@ -186,37 +186,39 @@ export class PulumiConfigManager {
   ): Promise<void> {
     this.logger.debug("Setting Helm configuration...");
 
-    // Validate and encode secrets before setting them
-    this.logger.debug("Validating and encoding secrets for Kubernetes...");
-    const secretsValidation = validateAndEncodeSecrets(options.secretsJson);
+    // Validate and process secrets for stringData usage (no base64 encoding needed)
+    this.logger.debug(
+      "Validating and processing secrets for Kubernetes stringData..."
+    );
+    const secretsValidation = validateAndProcessSecrets(options.secretsJson);
 
     if (!secretsValidation.isValid) {
       const errorMessages = secretsValidation.errors
-        .map((e) => `${e.field}: ${e.message}`)
+        .map((e: any) => `${e.field}: ${e.message}`)
         .join(", ");
       throw new Error(`Secrets validation failed: ${errorMessages}`);
     }
 
-    // Log encoding report if available
-    if (secretsValidation.encodingReport) {
-      const encodingStats = Object.entries(
-        secretsValidation.encodingReport
+    // Log processing report if available
+    if (secretsValidation.processingReport) {
+      const processingStats = Object.entries(
+        secretsValidation.processingReport
       ).reduce((acc, [key, status]) => {
-        acc[status] = (acc[status] || 0) + 1;
+        acc[status as string] = (acc[status as string] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
       this.logger.debug(
-        `Secret encoding complete: ${JSON.stringify(encodingStats)}`
+        `Secret processing complete: ${JSON.stringify(processingStats)}`
       );
     }
 
-    // Set Helm secrets with base64 encoding
+    // Set Helm secrets for stringData usage (plain text, no base64 encoding)
     await stack.setConfig("helmSecretsJson", {
-      value: secretsValidation.encodedSecretsJson,
+      value: secretsValidation.processedSecretsJson,
       secret: true,
     });
-    this.logger.debug("✓ Set Helm secrets configuration with base64 encoding");
+    this.logger.debug("✓ Set Helm secrets configuration for stringData usage");
 
     if (options.valuesJson) {
       await stack.setConfig("helmValuesJson", { value: options.valuesJson });

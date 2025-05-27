@@ -148,7 +148,7 @@ This setup uses a combination of Pulumi and Helm:
 
 ## Important Notes
 
-- **Secret Management**: Secrets are sourced from YAML files (e.g., `aws/chart-config/secrets.prod.yaml`) by `automation.ts`, converted to JSON, and passed to Pulumi. The Helm chart (`helm-chart/templates/secret.yaml`) creates Kubernetes secrets from these values. **Ensure source secret YAML files are gitignored.**
+- **Secret Management**: Secrets are sourced from YAML files (e.g., `aws/chart-config/secrets.prod.yaml`) by `automation.ts`, converted to JSON, and passed to Pulumi. The Helm chart (`helm-chart/templates/secret.yaml`) creates Kubernetes secrets using `stringData` (plain text values, no base64 encoding needed). **Ensure source secret YAML files are gitignored.**
 - **`companyName`**: This configuration is vital. It's used for naming Pulumi resources (EKS/GKE clusters) and dynamically in the Helm chart's `Chart.yaml` and release name. Set it via `pulumi config set companyName yourcompanyname`.
 - **Production Deployments**:
   - Configure `values.prod.yaml` and cloud-specific `chart-config` files for production.
