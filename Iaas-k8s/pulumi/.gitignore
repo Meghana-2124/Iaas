@@ -51,4 +51,6 @@ coverage/
 config/gcp-new.json
 service-account*.json
 
-scripts
+Pulumi.*.yaml
+kubeconfig.yaml
+gke_gcloud_auth_plugin_cache
