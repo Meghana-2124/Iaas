@@ -134,28 +134,44 @@ export class PulumiConfigManager {
 
       // Handle different types of credentials input
       if (typeof config.credentials === "object") {
-        // If credentials is an object (service account key), stringify it
         credentialsValue = JSON.stringify(config.credentials);
         this.logger.debug("✓ Set GCP credentials from JSON object");
       } else if (typeof config.credentials === "string") {
-        // Check if it's a file path or JSON content
         const isFilePath = !config.credentials.startsWith("{");
 
         if (isFilePath) {
-          credentialsValue = config.credentials;
-          this.logger.debug("✓ Set GCP credentials file path");
+          // If it's a file path, try to read the file
+          try {
+            const fs = await import("fs");
+            const path = await import("path");
+
+            // Resolve path relative to the current working directory
+            const fullPath = path.resolve(process.cwd(), config.credentials);
+
+            // Set GOOGLE_APPLICATION_CREDENTIALS environment variable
+            process.env.GOOGLE_APPLICATION_CREDENTIALS = fullPath;
+            this.logger.debug(
+              `✓ Set GOOGLE_APPLICATION_CREDENTIALS to: ${fullPath}`
+            );
+
+            credentialsValue = fs.readFileSync(fullPath, "utf8");
+            this.logger.debug("✓ Set GCP credentials from file path");
+          } catch (error) {
+            this.logger.error(
+              `Failed to read credentials file: ${config.credentials}`
+            );
+            throw new Error(
+              `Failed to read GCP credentials file: ${config.credentials}`
+            );
+          }
         } else {
           credentialsValue = config.credentials;
-          this.logger.debug("✓ Set GCP credentials JSON string");
+          this.logger.debug("✓ Set GCP credentials from JSON string");
         }
-      } else {
-        throw new Error(
-          "Invalid credentials format. Must be a file path, JSON string, or service account object."
-        );
       }
 
       await stack.setConfig("gcp:credentials", {
-        value: credentialsValue,
+        value: credentialsValue!,
         secret: true,
       });
     }
@@ -212,5 +228,4 @@ export class PulumiConfigManager {
       this.logger.debug(`✓ Set Helm chart path: ${options.helmChartPath}`);
     }
   }
-
 }

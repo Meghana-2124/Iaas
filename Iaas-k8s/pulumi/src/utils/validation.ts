@@ -332,27 +332,40 @@ export function isBase64Encoded(value: string): boolean {
 export function encodeSecretsForKubernetes(secrets: any): any {
   const encodedSecrets = JSON.parse(JSON.stringify(secrets)); // Deep clone
 
-  // Function to recursively encode all string values
-  function encodeObject(obj: any): void {
+  // Function to recursively encode string values, but only in specific paths
+  function encodeObject(obj: any, path: string[] = []): void {
     for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === "string") {
-        // Skip placeholder values that indicate they need replacement
-        if (
-          value.startsWith("PLEASE_REPLACE_WITH_") ||
-          value.startsWith("<REPLACE_WITH_") ||
-          value.includes("REPLACE_WITH")
-        ) {
-          console.warn(`Found placeholder value for ${key}: ${value}`);
-          continue;
-        }
+      const currentPath = [...path, key];
 
-        // Encode all string values if not already base64 encoded
-        if (!isBase64Encoded(value)) {
-          obj[key] = encodeSecretValue(value);
+      if (typeof value === "string") {
+        // Only encode strings that are in a "data" section of kubernetes secrets
+        // This preserves metadata like "name", "create", etc.
+        const isInDataSection =
+          currentPath.includes("data") &&
+          currentPath[currentPath.length - 2] === "data";
+
+        if (isInDataSection) {
+          // Skip placeholder values that indicate they need replacement
+          if (
+            value.startsWith("PLEASE_REPLACE_WITH_") ||
+            value.startsWith("<REPLACE_WITH_") ||
+            value.includes("REPLACE_WITH")
+          ) {
+            console.warn(
+              `Found placeholder value for ${currentPath.join(".")}: ${value}`
+            );
+            continue;
+          }
+
+          // Encode only data values if not already base64 encoded
+          if (!isBase64Encoded(value)) {
+            obj[key] = encodeSecretValue(value);
+          }
         }
+        // Don't encode other strings like secret names, create flags, etc.
       } else if (typeof value === "object" && value !== null) {
         // Recursively process objects
-        encodeObject(value);
+        encodeObject(value, currentPath);
       }
     }
   }
@@ -434,38 +447,55 @@ function encodeSecretsForKubernetesWithReport(secrets: any): {
     [key: string]: "encoded" | "already_encoded" | "placeholder" | "skipped";
   } = {};
 
-  // Function to recursively encode all string values
-  function encodeObject(obj: any, path: string = ""): void {
+  // Function to recursively encode only data values, preserving metadata
+  function encodeObject(
+    obj: any,
+    path: string = "",
+    pathArray: string[] = []
+  ): void {
     for (const [key, value] of Object.entries(obj)) {
       const currentPath = path ? `${path}.${key}` : key;
+      const currentPathArray = [...pathArray, key];
 
       if (typeof value === "string") {
-        // Skip placeholder values that indicate they need replacement
-        if (
-          value.startsWith("PLEASE_REPLACE_WITH_") ||
-          value.startsWith("<REPLACE_WITH_") ||
-          value.includes("REPLACE_WITH")
-        ) {
-          report[currentPath] = "placeholder";
-          console.warn(`Found placeholder value for ${currentPath}: ${value}`);
-          continue;
-        }
+        // Only encode strings that are in data sections
+        const isInDataSection =
+          currentPathArray.includes("data") &&
+          currentPathArray[currentPathArray.length - 2] === "data";
 
-        // Encode all string values if not already base64 encoded
-        if (isBase64Encoded(value)) {
-          report[currentPath] = "already_encoded";
+        if (isInDataSection) {
+          // Skip placeholder values that indicate they need replacement
+          if (
+            value.startsWith("PLEASE_REPLACE_WITH_") ||
+            value.startsWith("<REPLACE_WITH_") ||
+            value.includes("REPLACE_WITH")
+          ) {
+            report[currentPath] = "placeholder";
+            console.warn(
+              `Found placeholder value for ${currentPath}: ${value}`
+            );
+            continue;
+          }
+
+          // Encode data values if not already base64 encoded
+          if (isBase64Encoded(value)) {
+            report[currentPath] = "already_encoded";
+          } else {
+            obj[key] = encodeSecretValue(value);
+            report[currentPath] = "encoded";
+          }
         } else {
-          obj[key] = encodeSecretValue(value);
-          report[currentPath] = "encoded";
+          // Skip encoding for metadata fields (name, create, etc.)
+          report[currentPath] = "skipped";
         }
       } else if (typeof value === "object" && value !== null) {
         // Recursively process objects
-        encodeObject(value, currentPath);
+        encodeObject(value, currentPath, currentPathArray);
       }
     }
   }
 
-  encodeObject(encodedSecrets);
+  encodeObject(encodedSecrets, "", []);
   return { encodedSecrets, report };
 }
 

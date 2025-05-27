@@ -104,6 +104,17 @@ if (!mergedChartValues.nginx.hpa) {
   };
 }
 
+// Optimize resource requests for better scheduling on smaller nodes
+if (!mergedChartValues.rafikiAuth) mergedChartValues.rafikiAuth = {};
+if (!mergedChartValues.rafikiAuth.enabled) {
+  mergedChartValues.rafikiAuth.enabled = true; // Ensure rafiki-auth is enabled
+}
+
+if (!mergedChartValues.rafikiBackend) mergedChartValues.rafikiBackend = {};
+if (!mergedChartValues.rafikiBackend.enabled) {
+  mergedChartValues.rafikiBackend.enabled = true; // Ensure rafiki-backend is enabled
+}
+
 mergedChartValues.companyName = companyName;
 
 // Configure GCP-specific ingress settings
@@ -111,9 +122,18 @@ if (cloudProvider === "gcp") {
   if (!mergedChartValues.ingress) mergedChartValues.ingress = {};
   if (!mergedChartValues.ingress.annotations)
     mergedChartValues.ingress.annotations = {};
+
+  // Set static IP annotation
   mergedChartValues.ingress.annotations[
     "kubernetes.io/ingress.global-static-ip-name"
   ] = cluster.staticIpName;
+
+  // Allow HTTP traffic (required for GCP ingress when no TLS is configured)
+  mergedChartValues.ingress.annotations["kubernetes.io/ingress.allow-http"] =
+    "true";
+
+  // Set ingress class for GCP
+  mergedChartValues.ingress.annotations["kubernetes.io/ingress.class"] = "gce";
 }
 
 // Deploy Helm chart

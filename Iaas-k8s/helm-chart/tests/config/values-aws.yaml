@@ -97,9 +97,8 @@ nginx:
   ports:
     http: 80
   service:
-    type: ClusterIP
-    port:
-      http: 80
+    type: ClusterIP # Or ClusterIP if Ingress is the sole entry point
+    port: 80
   resources:
     limits:
       cpu: 200m

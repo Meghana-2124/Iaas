@@ -64,7 +64,7 @@ export interface GcpCloudConfig {
   project: string;
   region: string;
   zone?: string;
-  credentials?: string | object; // Path to service account JSON, JSON content string, or service account object
+  credentials?: string; // Path to service account JSON
 }
 
 export type CloudConfig = AwsCloudConfig | GcpCloudConfig;
