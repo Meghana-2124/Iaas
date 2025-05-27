@@ -17,6 +17,12 @@ data:
       
       server_name {{ .Values.nginx.config.serverNameIlp }}; 
 
+      location /healthz {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+      }
+
       location /graphql {
       {{- range .Values.nginx.config.graphqlAllowedIps }}
        allow {{ . }};
@@ -41,6 +47,12 @@ data:
     server { 
         root /srv/www/static;
         server_name {{ .Values.nginx.config.serverNameAuth }}; 
+
+        location /healthz {
+          access_log off;
+          return 200 "healthy\n";
+          add_header Content-Type text/plain;
+        }
 
         location /grant { 
             proxy_pass_request_headers on;

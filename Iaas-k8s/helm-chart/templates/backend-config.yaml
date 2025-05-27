@@ -1,0 +1,17 @@
+{{- if and .Values.gcp.backendConfig.enabled .Values.ingress.enabled }}
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: {{ .Values.gcp.backendConfig.name }}
+  labels:
+    {{- include "iaas-rafiki.labels" . | nindent 4 }}
+spec:
+  healthCheck:
+    checkIntervalSec: {{ .Values.gcp.backendConfig.healthCheck.checkIntervalSec }}
+    timeoutSec: {{ .Values.gcp.backendConfig.healthCheck.timeoutSec }}
+    healthyThreshold: {{ .Values.gcp.backendConfig.healthCheck.healthyThreshold }}
+    unhealthyThreshold: {{ .Values.gcp.backendConfig.healthCheck.unhealthyThreshold }}
+    type: {{ .Values.gcp.backendConfig.healthCheck.type }}
+    requestPath: {{ .Values.gcp.backendConfig.healthCheck.requestPath }}
+    port: {{ .Values.gcp.backendConfig.healthCheck.port }}
+{{- end }}

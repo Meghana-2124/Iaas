@@ -137,7 +137,7 @@
     "annotations": {
       "kubernetes.io/ingress.class": "gce",
       "kubernetes.io/ingress.global-static-ip-name": "rafiki-global-ip",
-      "kubernetes.io/ingress.allow-http": "false",
+      "kubernetes.io/ingress.allow-http": "true",
       "cloud.google.com/neg": "{\"ingress\": true}",
       "cloud.google.com/backend-config": "{\"default\": \"rafiki-backend-config\"}"
     },
