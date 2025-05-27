@@ -10,7 +10,7 @@
   "rafikiAuth": {
     "enabled": true,
     "name": "rafiki-auth",
-    "replicaCount": 1,
+    "replicaCount": 3,
     "image": {
       "repository": "ghcr.io/interledger/rafiki-auth",
       "tag": "latest",
@@ -34,16 +34,16 @@
     },
     "hpa": {
       "enabled": true,
-      "minReplicas": 1,
-      "maxReplicas": 5,
-      "targetCPUUtilizationPercentage": 80,
-      "targetMemoryUtilizationPercentage": 80
+      "minReplicas": 3,
+      "maxReplicas": 8,
+      "targetCPUUtilizationPercentage": 70,
+      "targetMemoryUtilizationPercentage": 75
     }
   },
   "rafikiBackend": {
     "enabled": true,
     "name": "rafiki-backend",
-    "replicaCount": 1,
+    "replicaCount": 2,
     "image": {
       "repository": "ghcr.io/interledger/rafiki-backend",
       "tag": "latest",
@@ -71,9 +71,9 @@
     },
     "hpa": {
       "enabled": true,
-      "minReplicas": 1,
-      "maxReplicas": 5,
-      "targetCPUUtilizationPercentage": 80,
+      "minReplicas": 2,
+      "maxReplicas": 6,
+      "targetCPUUtilizationPercentage": 75,
       "targetMemoryUtilizationPercentage": 80
     }
   },
@@ -116,7 +116,7 @@
   "redis": {
     "enabled": true,
     "name": "redis",
-    "replicaCount": 1,
+    "replicaCount": 2,
     "image": {
       "repository": "redis",
       "tag": "7",
