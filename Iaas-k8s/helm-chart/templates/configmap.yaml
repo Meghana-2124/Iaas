@@ -8,6 +8,30 @@ metadata:
     app.kubernetes.io/component: {{ .Values.nginx.name }}
 data:
   default.conf: |
+    # Default server block for health checks - catches all unmatched hosts
+    server {
+      listen 80 default_server;
+      server_name _;
+      
+      location /healthz {
+        access_log off;
+        return 200 "alive\n";
+        add_header Content-Type text/plain;
+      }
+      
+      # Handle Google Cloud health checks on root path
+      location = / {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+      }
+      
+      # Return 404 for all other requests on default server  
+      location / {
+        return 404;
+      }
+    }
+
     server {
       root /srv/www/static;
       

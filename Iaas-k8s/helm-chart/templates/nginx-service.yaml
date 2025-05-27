@@ -6,10 +6,13 @@ metadata:
   labels:
     {{- include "iaas-rafiki.labels" . | nindent 4 }}
     app.kubernetes.io/component: {{ .Values.nginx.name }}
-  {{- with .Values.nginx.service.annotations }}
   annotations:
+    {{- if .Values.gcp.backendConfig.enabled }}
+    cloud.google.com/backend-config: '{"default":"{{ .Values.gcp.backendConfig.name }}"}'
+    {{- end }}
+    {{- with .Values.nginx.service.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
 spec:
   type: {{ .Values.nginx.service.type }}
   ports:

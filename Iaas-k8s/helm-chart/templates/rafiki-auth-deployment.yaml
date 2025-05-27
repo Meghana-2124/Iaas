@@ -39,19 +39,6 @@ spec:
           envFrom:
             - secretRef:
                 name: {{ .Values.rafikiAuth.secrets.name }}
-          # env:
-          #   {{- range $key, $value := .Values.rafikiAuth.env }}
-          #   - name: {{ $key }}
-          #     value: {{ $value | quote }}
-          #   {{- end }}
-          # livenessProbe:
-          #   httpGet:
-          #     path: /healthz # Adjust path as needed
-          #     port: http-main
-          # readinessProbe:
-          #   httpGet:
-          #     path: /readyz # Adjust path as needed
-          #     port: http-main
           resources:
             {{- toYaml .Values.rafikiAuth.resources | nindent 12 }}
       restartPolicy: Always

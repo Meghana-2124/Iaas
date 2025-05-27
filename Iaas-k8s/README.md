@@ -118,7 +118,62 @@ This setup uses a combination of Pulumi and Helm:
         `pulumi config set gcp:zone <your-zone> --stack <stack-name>` (optional)
     - **Crucially**, the `automation.ts` script expects to find Helm values and secrets files (e.g., `../aws/chart-config/values.dev.yaml`, `../aws/chart-config/secrets.dev.yaml`) and will convert them into `helmValuesJson` and `helmSecretsJson` config values for the Pulumi program. Ensure these source YAML files are correctly placed and populated.
 
-4.  **Prepare Helm Values & Secrets Files**:
+4.  **Deploy using the Pulumi CLI**:
+
+    Use the deployment command for a complete infrastructure setup:
+
+    ```bash
+    npm run dev -- up prod --companyName chimoney-k8s --secretsFile ./config/secrets.json --valuesFile ./config/values.json --cloudProvider gcp --cloudConfigFile ./config/gcp-new.json --autoSetupConfig
+    ```
+
+    This command will:
+    - Create GKE cluster with proper configuration
+    - Deploy all Rafiki services (auth, backend, nginx, redis)
+    - Set up Google Cloud Load Balancer with health checks
+    - Configure ingress for the specified domains
+
+5.  **Verify Deployment**:
+
+    After deployment, run the verification script:
+
+    ```bash
+    ./scripts/verify-deployment.sh
+    ```
+
+    Or manually verify:
+    ```bash
+    # Check pods are running
+    kubectl get pods
+
+    # Check ingress has IP
+    kubectl get ingress rafiki-ingress
+
+    # Test health check
+    curl -s -o /dev/null -w "%{http_code}" http://LOAD_BALANCER_IP/healthz
+    ```
+
+## Deployment Fixes and Known Issues
+
+**✅ Successfully Deployed**: The deployment has been tested and verified working with the following key fixes:
+
+1. **Service Connectivity**: Updated service names in `config/secrets.json` for proper internal communication
+2. **Health Checks**: Configured Google Cloud Load Balancer health checks on `/healthz` endpoint
+3. **Ingress Configuration**: Added required annotations for Google Cloud backend configuration
+4. **Nginx Configuration**: Updated with proper health check endpoints and routing
+
+For detailed information about the fixes applied, see [DEPLOYMENT_FIXES.md](DEPLOYMENT_FIXES.md).
+
+## Prepared Configuration Files
+
+The following configuration files are ready for deployment:
+
+- `pulumi/config/secrets.json` - Contains all required secrets with correct service names
+- `pulumi/config/values.json` - Contains optimized values for GCP deployment
+- `pulumi/config/gcp-new.json` - GCP service account configuration
+- `helm-chart/templates/backend-config.yaml` - Google Cloud backend configuration
+- `helm-chart/templates/configmap.yaml` - Nginx configuration with health checks
+
+4.  **Prepare Additional Helm Values & Secrets Files** (Optional):
 
     - Base configurations: `helm-chart/values.yaml` (ensure `companyName` is present or can be injected).
     - Environment-specific values: `helm-chart/values.dev.yaml`, `helm-chart/values.prod.yaml`.

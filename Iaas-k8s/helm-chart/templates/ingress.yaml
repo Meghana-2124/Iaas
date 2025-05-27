@@ -26,45 +26,29 @@ spec:
     - host: {{ .Values.ingress.hosts.ilp.host | quote }}
       http:
         paths:
-          {{- range .Values.ingress.hosts.ilp.paths }}
+        {{- range .Values.ingress.hosts.ilp.paths }}
           - path: {{ .path }}
-            {{- if eq $.Values.ingress.className "nginx" }}
-            {{- if eq .pathType "Prefix" }}
-            pathType: ImplementationSpecific
-            {{- else }}
             pathType: {{ .pathType }}
-            {{- end }}
-            {{- else }}
-            pathType: {{ .pathType }}
-            {{- end }}
             backend:
               service:
-                name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" (printf "%s" .serviceNameSuffix) "context" $) }}
+                name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .serviceNameSuffix "context" $) }}
                 port:
                   number: {{ .servicePort }}
-          {{- end }}
+        {{- end }}
     {{- end }}
     {{- if .Values.ingress.hosts.auth }}
     - host: {{ .Values.ingress.hosts.auth.host | quote }}
       http:
         paths:
-          {{- range .Values.ingress.hosts.auth.paths }}
+        {{- range .Values.ingress.hosts.auth.paths }}
           - path: {{ .path }}
-            {{- if eq $.Values.ingress.className "nginx" }}
-            {{- if eq .pathType "Prefix" }}
-            pathType: ImplementationSpecific
-            {{- else }}
             pathType: {{ .pathType }}
-            {{- end }}
-            {{- else }}
-            pathType: {{ .pathType }}
-            {{- end }}
             backend:
               service:
-                name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" (printf "%s" .serviceNameSuffix) "context" $) }}
+                name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .serviceNameSuffix "context" $) }}
                 port:
                   number: {{ .servicePort }}
-          {{- end }}
+        {{- end }}
     {{- end }}
   {{- if .Values.ingress.defaultBackend }}
   defaultBackend:

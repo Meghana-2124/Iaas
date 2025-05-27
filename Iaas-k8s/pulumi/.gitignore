@@ -50,3 +50,5 @@ coverage/
 
 config/gcp-new.json
 service-account*.json
+
+scripts
