@@ -1,5 +1,6 @@
 # Default values for iaas-rafiki Helm chart
-# This is used for basic linting. Use values-aws.yaml or values-gcp.yaml for actual deployments.
+# This configuration provides a streamlined single deployment model
+# Use values-aws.yaml or values-gcp.yaml for cloud-specific deployments
 
 companyName: mycompany
 
@@ -126,3 +127,19 @@ ingress:
           serviceNameSuffix: nginx
           servicePort: 80
   tls: []
+
+# GCP-specific configurations (minimal for compatibility)
+gcp:
+  backendConfig:
+    enabled: false
+  managedCertificate:
+    enabled: false
+  workloadIdentity:
+    enabled: false
+
+# AWS-specific configurations (minimal for compatibility)
+aws:
+  loadBalancer:
+    enabled: false
+  acm:
+    enabled: false

@@ -1,5 +1,6 @@
 import * as gcp from "@pulumi/gcp";
 import * as pulumi from "@pulumi/pulumi";
+import { ClusterLookupResult } from "../types/index.js";
 
 // Define configurations for different environments for GKE
 interface GkeConfig {
@@ -182,4 +183,295 @@ users:
     gcpZone: zone,
     staticIpName: staticIp.name,
   };
+}
+
+// Function to look up existing shared GKE cluster and static IP (using Pulumi data sources)
+export function lookupSharedGkeClusterSync(
+  sharedClusterName: string,
+  cloudProvider: string = "gcp",
+  project?: string
+): pulumi.Output<ClusterLookupResult> {
+  const gcpConfig = new pulumi.Config("gcp");
+  const configProject = project || gcpConfig.require("project");
+  const region = gcpConfig.get("region") || "us-central1";
+  const zone = gcpConfig.get("zone") || "us-central1-a";
+
+  pulumi.log.info(
+    `Looking up shared GKE cluster: ${sharedClusterName} in project: ${configProject}, zone: ${zone}`
+  );
+
+  // Look for existing GKE cluster using Pulumi data source
+  const clusterLookup = gcp.container
+    .getCluster(
+      {
+        name: sharedClusterName,
+        location: zone,
+        project: configProject,
+      },
+      { async: true }
+    )
+    .then((existingCluster) => {
+      if (existingCluster) {
+        pulumi.log.info(
+          `Found existing shared GKE cluster: ${sharedClusterName}`
+        );
+
+        // Look for existing static IP
+        return gcp.compute
+          .getGlobalAddress(
+            {
+              name: "rafiki-global-ip",
+              project: configProject,
+            },
+            { async: true }
+          )
+          .then((existingStaticIp) => {
+            const staticIpName = existingStaticIp
+              ? existingStaticIp.name
+              : undefined;
+            if (staticIpName) {
+              pulumi.log.info(`Found existing static IP: ${staticIpName}`);
+            } else {
+              pulumi.log.info(
+                "No existing static IP found, will create new one if needed"
+              );
+            }
+
+            // Generate kubeconfig for existing cluster
+            const context = `${configProject}_${zone}_${existingCluster.name}`;
+            const kubeconfig = `apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: ${existingCluster.masterAuths?.[0]?.clusterCaCertificate}
+    server: https://${existingCluster.endpoint}
+  name: ${context}
+contexts:
+- context:
+    cluster: ${context}
+    user: ${context}
+  name: ${context}
+current-context: ${context}
+kind: Config
+preferences: {}
+users:
+- name: ${context}
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1beta1
+      command: gke-gcloud-auth-plugin
+      installHint: Install gke-gcloud-auth-plugin for use with kubectl by following
+        https://cloud.google.com/blog/products/containers-kubernetes/kubectl-auth-changes-in-gke
+      provideClusterInfo: true
+`;
+
+            return {
+              exists: true,
+              kubeconfig: kubeconfig,
+              clusterName: existingCluster.name,
+              staticIpName: staticIpName,
+              region: region,
+              zone: zone,
+              project: configProject,
+            };
+          })
+          .catch(() => {
+            // Static IP lookup failed but cluster exists
+            const context = `${configProject}_${zone}_${existingCluster.name}`;
+            const kubeconfig = `apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: ${existingCluster.masterAuths?.[0]?.clusterCaCertificate}
+    server: https://${existingCluster.endpoint}
+  name: ${context}
+contexts:
+- context:
+    cluster: ${context}
+    user: ${context}
+  name: ${context}
+current-context: ${context}
+kind: Config
+preferences: {}
+users:
+- name: ${context}
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1beta1
+      command: gke-gcloud-auth-plugin
+      installHint: Install gke-gcloud-auth-plugin for use with kubectl by following
+        https://cloud.google.com/blog/products/containers-kubernetes/kubectl-auth-changes-in-gke
+      provideClusterInfo: true
+`;
+
+            return {
+              exists: true,
+              kubeconfig: kubeconfig,
+              clusterName: existingCluster.name,
+              staticIpName: undefined,
+              region: region,
+              zone: zone,
+              project: configProject,
+            };
+          });
+      } else {
+        return {
+          exists: false,
+          project: configProject,
+          region: region,
+          zone: zone,
+        };
+      }
+    })
+    .catch(() => {
+      pulumi.log.info(
+        `Shared GKE cluster ${sharedClusterName} not found, will create new one`
+      );
+      return {
+        exists: false,
+        project: configProject,
+        region: region,
+        zone: zone,
+      };
+    });
+
+  return pulumi.output(clusterLookup);
+}
+
+// Function to look up existing shared GKE cluster and static IP
+export async function lookupSharedGkeCluster(
+  sharedClusterName: string,
+  cloudProvider: string = "gcp",
+  project?: string
+): Promise<ClusterLookupResult> {
+  try {
+    const gcpConfig = new pulumi.Config("gcp");
+    const configProject = project || gcpConfig.require("project");
+    const region = gcpConfig.get("region") || "us-central1";
+    const zone = gcpConfig.get("zone") || "us-central1-a";
+
+    pulumi.log.info(
+      `Looking up shared GKE cluster: ${sharedClusterName} in project: ${configProject}, zone: ${zone}`
+    );
+
+    try {
+      // Look for existing GKE cluster
+      const existingCluster = await gcp.container.getCluster({
+        name: sharedClusterName,
+        location: zone,
+        project: configProject,
+      });
+
+      if (existingCluster) {
+        pulumi.log.info(
+          `Found existing shared GKE cluster: ${sharedClusterName}`
+        );
+
+        // Look for existing static IP
+        let staticIpName: string | undefined;
+        try {
+          const existingStaticIp = await gcp.compute.getGlobalAddress({
+            name: "rafiki-global-ip",
+            project: configProject,
+          });
+          staticIpName = existingStaticIp.name;
+          pulumi.log.info(`Found existing static IP: ${staticIpName}`);
+        } catch (ipError) {
+          pulumi.log.info(
+            "No existing static IP found, will create new one if needed"
+          );
+        }
+
+        // Generate kubeconfig for existing cluster
+        const context = `${configProject}_${zone}_${existingCluster.name}`;
+        const kubeconfig = `apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: ${existingCluster.masterAuths?.[0]?.clusterCaCertificate}
+    server: https://${existingCluster.endpoint}
+  name: ${context}
+contexts:
+- context:
+    cluster: ${context}
+    user: ${context}
+  name: ${context}
+current-context: ${context}
+kind: Config
+preferences: {}
+users:
+- name: ${context}
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1beta1
+      command: gke-gcloud-auth-plugin
+      installHint: Install gke-gcloud-auth-plugin for use with kubectl by following
+        https://cloud.google.com/blog/products/containers-kubernetes/kubectl-auth-changes-in-gke
+      provideClusterInfo: true
+`;
+
+        return {
+          exists: true,
+          kubeconfig: kubeconfig,
+          clusterName: existingCluster.name,
+          staticIpName: staticIpName,
+          region: region,
+          zone: zone,
+          project: configProject,
+        };
+      }
+    } catch (error) {
+      pulumi.log.info(
+        `Shared GKE cluster ${sharedClusterName} not found, will create new one`
+      );
+    }
+
+    return {
+      exists: false,
+      project: configProject,
+      region: region,
+      zone: zone,
+    };
+  } catch (error) {
+    pulumi.log.warn(`Error looking up shared GKE cluster: ${error}`);
+    return {
+      exists: false,
+    };
+  }
+}
+
+// Function to look up or create static IP for shared deployments
+export function getOrCreateStaticIp(
+  name: string,
+  project: string,
+  gcpProvider: gcp.Provider
+) {
+  try {
+    // Try to get existing static IP
+    const existingIp = gcp.compute.getGlobalAddress({
+      name: name,
+      project: project,
+    });
+
+    return existingIp.then((ip) => {
+      pulumi.log.info(`Using existing static IP: ${ip.name}`);
+      return {
+        name: ip.name,
+        address: ip.address,
+      };
+    });
+  } catch (error) {
+    // Create new static IP if it doesn't exist
+    pulumi.log.info(`Creating new static IP: ${name}`);
+    const staticIp = new gcp.compute.GlobalAddress(
+      name,
+      {
+        project: project,
+        description: "Static IP for shared GKE Ingress",
+      },
+      { provider: gcpProvider }
+    );
+
+    return {
+      name: staticIp.name,
+      address: staticIp.address,
+    };
+  }
 }

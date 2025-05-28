@@ -2,7 +2,7 @@
   "name": "@chimoney/iaas-k8s-deployment",
   "version": "1.0.0",
   "type": "module",
-  "description": "Kubernetes Infrastructure as a Service deployment package for multi-cloud environments",
+  "description": "Kubernetes Infrastructure as a Service deployment package for streamlined multi-cloud environments",
   "main": "dist/automation.js",
   "types": "dist/automation.d.ts",
   "exports": {

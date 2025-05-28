@@ -16,6 +16,9 @@ const cloudProvider = config.require("cloudProvider"); // 'aws' or 'gcp'
 const companyName = config.require("companyName");
 const helmSecretsJson = config.get("helmSecretsJson");
 const helmValuesJson = config.get("helmValuesJson");
+// New namespace-based deployment configuration
+const namespace = config.get("namespace");
+const deploymentType = config.get("deploymentType") || "dedicated"; // Default to dedicated for backward compatibility
 
 // Helper function to merge values
 function loadAndMergeValues(secretsJson?: string, valuesJson?: string): any {
@@ -46,186 +49,321 @@ function loadAndMergeValues(secretsJson?: string, valuesJson?: string): any {
   return mergedValues;
 }
 
-// Infrastructure setup
+// Infrastructure setup based on deployment type
 let cluster: any;
 let k8sProvider: k8s.Provider;
 let dependsOnResources: any[] = [];
 
-if (cloudProvider === "aws") {
-  cluster = awsInfra.createEksCluster(`${companyName}-rafiki`, stack);
-  k8sProvider = new k8s.Provider("k8s-provider-aws", {
-    kubeconfig: cluster.kubeconfig,
-  });
+function setupInfrastructure() {
+  if (deploymentType === "dedicated") {
+    // For dedicated deployments, create a new cluster for this company
+    if (cloudProvider === "aws") {
+      cluster = awsInfra.createEksCluster(`${companyName}-rafiki`, stack);
+      k8sProvider = new k8s.Provider("k8s-provider-aws", {
+        kubeconfig: cluster.kubeconfig,
+      });
 
-  const awsLoadBalancerControllerChart = new k8s.helm.v3.Chart(
-    "aws-load-balancer-controller",
-    {
-      chart: "aws-load-balancer-controller",
-      version: "1.7.1",
-      namespace: "kube-system",
-      fetchOpts: {
-        repo: "https://aws.github.io/eks-charts",
-      },
-      values: {
-        clusterName: cluster.clusterName,
-        serviceAccount: {
-          create: true,
-          name: "aws-load-balancer-controller",
+      const awsLoadBalancerControllerChart = new k8s.helm.v3.Chart(
+        "aws-load-balancer-controller",
+        {
+          chart: "aws-load-balancer-controller",
+          version: "1.7.1",
+          namespace: "kube-system",
+          fetchOpts: {
+            repo: "https://aws.github.io/eks-charts",
+          },
+          values: {
+            clusterName: cluster.clusterName,
+            serviceAccount: {
+              create: true,
+              name: "aws-load-balancer-controller",
+            },
+          },
+        },
+        { provider: k8sProvider }
+      );
+      dependsOnResources.push(awsLoadBalancerControllerChart);
+      pulumi.log.info(
+        "AWS Load Balancer Controller deployment initiated for dedicated cluster."
+      );
+    } else if (cloudProvider === "gcp") {
+      cluster = gcpInfra.createGkeCluster(`${companyName}-rafiki`, stack);
+      k8sProvider = new k8s.Provider("k8s-provider-gcp", {
+        kubeconfig: cluster.kubeconfig,
+      });
+      pulumi.log.info(
+        "GCP GKE cluster deployment initiated for dedicated cluster."
+      );
+    } else {
+      throw new Error("Invalid cloudProvider. Must be 'aws' or 'gcp'.");
+    }
+  } else if (deploymentType === "shared") {
+    // For shared deployments, look for existing cluster first, create if not found
+    const sharedClusterName = `shared-${cloudProvider}-cluster`;
+
+    if (cloudProvider === "aws") {
+      // Use the lookup function which returns a pulumi output
+      const lookupResult = awsInfra.lookupSharedEksClusterSync(
+        sharedClusterName,
+        cloudProvider
+      );
+
+      // Create cluster based on lookup result
+      cluster = lookupResult.apply((result) => {
+        if (result.exists && result.kubeconfig) {
+          pulumi.log.info(
+            `Using existing shared AWS EKS cluster: ${sharedClusterName}`
+          );
+          return {
+            kubeconfig: result.kubeconfig,
+            clusterName: result.clusterName,
+            vpcId: result.vpcId,
+            region: result.region,
+          };
+        } else {
+          pulumi.log.info(
+            `Creating new shared AWS EKS cluster: ${sharedClusterName}`
+          );
+          return awsInfra.createEksCluster(sharedClusterName, stack);
+        }
+      });
+
+      k8sProvider = new k8s.Provider("k8s-provider-aws-shared", {
+        kubeconfig: cluster.apply((c: any) => c.kubeconfig),
+      });
+    } else if (cloudProvider === "gcp") {
+      // Use the lookup function which returns a pulumi output
+      const lookupResult = gcpInfra.lookupSharedGkeClusterSync(
+        sharedClusterName,
+        cloudProvider
+      );
+
+      // Create cluster based on lookup result
+      cluster = lookupResult.apply((result) => {
+        if (result.exists && result.kubeconfig) {
+          pulumi.log.info(
+            `Using existing shared GCP GKE cluster: ${sharedClusterName}`
+          );
+          return {
+            kubeconfig: result.kubeconfig,
+            clusterName: result.clusterName,
+            staticIpName: result.staticIpName,
+            gcpProject: result.project,
+            gcpZone: result.zone,
+          };
+        } else {
+          pulumi.log.info(
+            `Creating new shared GCP GKE cluster: ${sharedClusterName}`
+          );
+          return gcpInfra.createGkeCluster(sharedClusterName, stack);
+        }
+      });
+
+      k8sProvider = new k8s.Provider("k8s-provider-gcp-shared", {
+        kubeconfig: cluster.apply((c: any) => c.kubeconfig),
+      });
+    } else {
+      throw new Error("Invalid cloudProvider. Must be 'aws' or 'gcp'.");
+    }
+  } else {
+    throw new Error("Invalid deploymentType. Must be 'dedicated' or 'shared'.");
+  }
+}
+
+// Setup infrastructure
+setupInfrastructure();
+
+// Deploy helm chart and create resources based on infrastructure setup
+const deploymentOutputs = cluster.apply((clusterData: any) => {
+  // Prepare Helm values
+  const defaultChartPath = path.join(__dirname, "../..", "helm-chart");
+  const chartPathDir = process.env.HELM_CHART_PATH || defaultChartPath;
+  const mergedChartValues = loadAndMergeValues(helmSecretsJson, helmValuesJson);
+
+  // Set default nginx HPA configuration
+  if (!mergedChartValues.nginx) mergedChartValues.nginx = {};
+  if (!mergedChartValues.nginx.hpa) {
+    mergedChartValues.nginx.hpa = {
+      enabled: true,
+      minReplicas: 1,
+      maxReplicas: 5,
+      targetCPUUtilizationPercentage: 80,
+    };
+  }
+
+  // Optimize resource requests for better scheduling on smaller nodes
+  if (!mergedChartValues.rafikiAuth) mergedChartValues.rafikiAuth = {};
+  if (!mergedChartValues.rafikiAuth.enabled) {
+    mergedChartValues.rafikiAuth.enabled = true; // Ensure rafiki-auth is enabled
+  }
+
+  if (!mergedChartValues.rafikiBackend) mergedChartValues.rafikiBackend = {};
+  if (!mergedChartValues.rafikiBackend.enabled) {
+    mergedChartValues.rafikiBackend.enabled = true; // Ensure rafiki-backend is enabled
+  }
+
+  mergedChartValues.companyName = companyName;
+
+  // Set namespace and deployment type in chart values
+  if (namespace) {
+    mergedChartValues.namespace = namespace;
+  }
+  mergedChartValues.deploymentType = deploymentType;
+
+  // Configure GCP-specific ingress settings
+  if (cloudProvider === "gcp") {
+    if (!mergedChartValues.ingress) mergedChartValues.ingress = {};
+    if (!mergedChartValues.ingress.annotations)
+      mergedChartValues.ingress.annotations = {};
+
+    // Set static IP annotation
+    mergedChartValues.ingress.annotations[
+      "kubernetes.io/ingress.global-static-ip-name"
+    ] = clusterData.staticIpName;
+
+    // Allow HTTP traffic (required for GCP ingress when no TLS is configured)
+    mergedChartValues.ingress.annotations["kubernetes.io/ingress.allow-http"] =
+      "true";
+
+    // Set ingress class for GCP
+    mergedChartValues.ingress.annotations["kubernetes.io/ingress.class"] =
+      "gce";
+  }
+
+  // Deploy Helm chart with namespace support
+  const helmReleaseName =
+    deploymentType === "shared" && namespace
+      ? `${namespace}-rafiki`
+      : `${companyName}-rafiki`;
+  const ingressResourceName = "rafiki-ingress";
+
+  // Create namespace for shared deployments
+  let namespaceResource: k8s.core.v1.Namespace | undefined;
+  if (deploymentType === "shared" && namespace) {
+    namespaceResource = new k8s.core.v1.Namespace(
+      `namespace-${namespace}`,
+      {
+        metadata: {
+          name: namespace,
+          labels: {
+            "app.kubernetes.io/managed-by": "pulumi",
+            "iaas.deployment/type": deploymentType,
+            "iaas.deployment/company": companyName,
+          },
         },
       },
+      { provider: k8sProvider }
+    );
+    dependsOnResources.push(namespaceResource);
+  }
+
+  const iaasRafikiChart = new k8s.helm.v3.Chart(
+    helmReleaseName,
+    {
+      path: chartPathDir,
+      values: mergedChartValues,
+      namespace: namespace || "default", // Use specified namespace or default
     },
-    { provider: k8sProvider }
+    { provider: k8sProvider, dependsOn: dependsOnResources }
   );
-  dependsOnResources.push(awsLoadBalancerControllerChart);
-  pulumi.log.info("AWS Load Balancer Controller deployment initiated.");
-} else if (cloudProvider === "gcp") {
-  cluster = gcpInfra.createGkeCluster(`${companyName}-rafiki`, stack);
-  k8sProvider = new k8s.Provider("k8s-provider-gcp", {
-    kubeconfig: cluster.kubeconfig,
-  });
-  pulumi.log.info("GCP GKE cluster deployment initiated.");
-} else {
-  throw new Error("Invalid cloudProvider. Must be 'aws' or 'gcp'.");
-}
 
-// Prepare Helm values
-const defaultChartPath = path.join(__dirname, "../..", "helm-chart");
-const chartPathDir = process.env.HELM_CHART_PATH || defaultChartPath;
-const mergedChartValues = loadAndMergeValues(helmSecretsJson, helmValuesJson);
+  // Get ingress IP/hostname for AWS
+  let ingressIpOutput: pulumi.Output<string> | undefined;
+  if (cloudProvider === "aws") {
+    const loadBalancerIngressOutput = iaasRafikiChart.getResourceProperty(
+      "networking.k8s.io/v1/Ingress",
+      ingressResourceName,
+      "status"
+    );
 
-// Set default nginx HPA configuration
-if (!mergedChartValues.nginx) mergedChartValues.nginx = {};
-if (!mergedChartValues.nginx.hpa) {
-  mergedChartValues.nginx.hpa = {
-    enabled: true,
-    minReplicas: 1,
-    maxReplicas: 5,
-    targetCPUUtilizationPercentage: 80,
+    ingressIpOutput = loadBalancerIngressOutput.apply((status: any): string => {
+      if (status?.loadBalancer?.ingress?.[0]) {
+        const hostname = status.loadBalancer.ingress[0].hostname;
+        const ip = status.loadBalancer.ingress[0].ip;
+        return hostname || ip || "Pending";
+      }
+      return "Pending";
+    });
+  } else {
+    ingressIpOutput = pulumi.output(
+      clusterData.staticIpName || "Pending"
+    ) as pulumi.Output<string>;
+  }
+
+  return {
+    kubeconfig: clusterData.kubeconfig,
+    clusterName: clusterData.clusterName,
+    ingressIp: ingressIpOutput,
+    helmChart: iaasRafikiChart,
+    clusterData: clusterData,
   };
-}
-
-// Optimize resource requests for better scheduling on smaller nodes
-if (!mergedChartValues.rafikiAuth) mergedChartValues.rafikiAuth = {};
-if (!mergedChartValues.rafikiAuth.enabled) {
-  mergedChartValues.rafikiAuth.enabled = true; // Ensure rafiki-auth is enabled
-}
-
-if (!mergedChartValues.rafikiBackend) mergedChartValues.rafikiBackend = {};
-if (!mergedChartValues.rafikiBackend.enabled) {
-  mergedChartValues.rafikiBackend.enabled = true; // Ensure rafiki-backend is enabled
-}
-
-mergedChartValues.companyName = companyName;
-
-// Configure GCP-specific ingress settings
-if (cloudProvider === "gcp") {
-  if (!mergedChartValues.ingress) mergedChartValues.ingress = {};
-  if (!mergedChartValues.ingress.annotations)
-    mergedChartValues.ingress.annotations = {};
-
-  // Set static IP annotation
-  mergedChartValues.ingress.annotations[
-    "kubernetes.io/ingress.global-static-ip-name"
-  ] = cluster.staticIpName;
-
-  // Allow HTTP traffic (required for GCP ingress when no TLS is configured)
-  mergedChartValues.ingress.annotations["kubernetes.io/ingress.allow-http"] =
-    "true";
-
-  // Set ingress class for GCP
-  mergedChartValues.ingress.annotations["kubernetes.io/ingress.class"] = "gce";
-}
-
-// Deploy Helm chart
-const helmReleaseName = `${companyName}-rafiki`;
-const ingressResourceName = "rafiki-ingress";
-
-const iaasRafikiChart = new k8s.helm.v3.Chart(
-  helmReleaseName,
-  {
-    path: chartPathDir,
-    values: mergedChartValues,
-  },
-  { provider: k8sProvider, dependsOn: dependsOnResources }
-);
-
-// Get ingress IP/hostname for AWS
-let ingressIpOutput: pulumi.Output<string> | undefined;
-if (cloudProvider === "aws") {
-  const loadBalancerIngressOutput = iaasRafikiChart.getResourceProperty(
-    "networking.k8s.io/v1/Ingress",
-    ingressResourceName,
-    "status"
-  );
-
-  ingressIpOutput = loadBalancerIngressOutput.apply((status: any): string => {
-    if (status?.loadBalancer?.ingress?.[0]) {
-      const hostname = status.loadBalancer.ingress[0].hostname;
-      const ip = status.loadBalancer.ingress[0].ip;
-      return hostname || ip || "Pending";
-    }
-    return "Pending";
-  });
-} else {
-  ingressIpOutput = cluster.staticIpName;
-}
+});
 
 // =================
 // EXPORTS
 // =================
 
 // Essential cluster information
-export const kubeconfig = cluster.kubeconfig;
-export const clusterName = cluster.clusterName;
+export const kubeconfig = deploymentOutputs.apply(
+  (outputs: any) => outputs.kubeconfig
+);
+export const clusterName = deploymentOutputs.apply(
+  (outputs: any) => outputs.clusterName
+);
 
 // Cloud-specific outputs
-export const clusterInfo =
-  cloudProvider === "aws"
+export const clusterInfo = deploymentOutputs.apply((outputs: any) => {
+  const clusterData = outputs.clusterData;
+  return cloudProvider === "aws"
     ? {
         provider: "aws",
-        clusterName: cluster.clusterName,
-        vpcId: cluster.vpcId,
-        region: cluster.region,
+        clusterName: clusterData.clusterName,
+        vpcId: clusterData.vpcId,
+        region: clusterData.region,
       }
     : {
         provider: "gcp",
-        clusterName: cluster.clusterName,
-        project: cluster.gcpProject,
-        zone: cluster.gcpZone,
-        staticIpName: cluster.staticIpName,
+        clusterName: clusterData.clusterName,
+        project: clusterData.gcpProject,
+        zone: clusterData.gcpZone,
+        staticIpName: clusterData.staticIpName,
       };
+});
 
 // Service endpoints
-export const endpoints = pulumi
-  .all([mergedChartValues, companyName])
-  .apply(([values, cName]) => {
-    const ilpDomain = values.nginx?.config?.serverNameIlp || `ilp.${cName}.com`;
-    const authDomain =
-      values.nginx?.config?.serverNameAuth || `auth-ilp.${cName}.io`;
+export const endpoints = deploymentOutputs.apply((outputs: any) => {
+  // Get merged chart values from the helm chart
+  const mergedChartValues = loadAndMergeValues(helmSecretsJson, helmValuesJson);
+  const ilpDomain =
+    mergedChartValues.nginx?.config?.serverNameIlp || `ilp.${companyName}.com`;
+  const authDomain =
+    mergedChartValues.nginx?.config?.serverNameAuth ||
+    `auth-ilp.${companyName}.io`;
 
-    return {
-      ilpEndpoint: `https://${ilpDomain}`,
-      authEndpoint: `https://${authDomain}`,
-      graphqlEndpoint: `https://${ilpDomain}/graphql`,
-      connectorEndpoint: `https://${ilpDomain}/connector`,
-      grantEndpoint: `https://${authDomain}/grant`,
-      adminEndpoints: {
-        auth: `https://${authDomain}/admin`,
-        backend: `https://${ilpDomain}/admin`,
-      },
-    };
-  });
+  return {
+    ilpEndpoint: `https://${ilpDomain}`,
+    authEndpoint: `https://${authDomain}`,
+    graphqlEndpoint: `https://${ilpDomain}/graphql`,
+    connectorEndpoint: `https://${ilpDomain}/connector`,
+    grantEndpoint: `https://${authDomain}/grant`,
+    adminEndpoints: {
+      auth: `https://${authDomain}/admin`,
+      backend: `https://${ilpDomain}/admin`,
+    },
+  };
+});
 
 // DNS and load balancer information
-export const dnsInfo = pulumi
-  .all([companyName, cloudProvider, mergedChartValues, ingressIpOutput])
-  .apply(([company, provider, values, ingressIp]) => {
-    const ilpDomain =
-      values.nginx?.config?.serverNameIlp || `ilp.${company}.com`;
-    const authDomain =
-      values.nginx?.config?.serverNameAuth || `auth-ilp.${company}.io`;
+export const dnsInfo = deploymentOutputs.apply((outputs: any) => {
+  const mergedChartValues = loadAndMergeValues(helmSecretsJson, helmValuesJson);
+  const ilpDomain =
+    mergedChartValues.nginx?.config?.serverNameIlp || `ilp.${companyName}.com`;
+  const authDomain =
+    mergedChartValues.nginx?.config?.serverNameAuth ||
+    `auth-ilp.${companyName}.io`;
 
-    if (provider === "gcp") {
+  return outputs.ingressIp.apply((ingressIp: string) => {
+    if (cloudProvider === "gcp") {
       return {
         provider: "gcp",
         domains: [ilpDomain, authDomain],
@@ -258,32 +396,41 @@ export const dnsInfo = pulumi
       };
     }
   });
+});
 
 // Management commands
-export const managementCommands = pulumi
-  .all([helmReleaseName, ingressResourceName])
-  .apply(([releaseName, ingressName]) => ({
+export const managementCommands = deploymentOutputs.apply((outputs: any) => {
+  const helmReleaseName =
+    deploymentType === "shared" && namespace
+      ? `${namespace}-rafiki`
+      : `${companyName}-rafiki`;
+  const ingressResourceName = "rafiki-ingress";
+
+  return {
     kubectl: {
-      getPods: `kubectl get pods -l app.kubernetes.io/instance=${releaseName}`,
-      getServices: `kubectl get services -l app.kubernetes.io/instance=${releaseName}`,
-      getIngress: `kubectl get ingress ${ingressName}`,
-      getLogs: `kubectl logs -l app.kubernetes.io/instance=${releaseName} -f`,
+      getPods: `kubectl get pods -l app.kubernetes.io/instance=${helmReleaseName}`,
+      getServices: `kubectl get services -l app.kubernetes.io/instance=${helmReleaseName}`,
+      getIngress: `kubectl get ingress ${ingressResourceName}`,
+      getLogs: `kubectl logs -l app.kubernetes.io/instance=${helmReleaseName} -f`,
     },
     helm: {
-      status: `helm status ${releaseName}`,
-      values: `helm get values ${releaseName}`,
-      upgrade: `helm upgrade ${releaseName} [CHART_PATH] -f [VALUES_FILE]`,
-      uninstall: `helm uninstall ${releaseName}`,
+      status: `helm status ${helmReleaseName}`,
+      values: `helm get values ${helmReleaseName}`,
+      upgrade: `helm upgrade ${helmReleaseName} [CHART_PATH] -f [VALUES_FILE]`,
+      uninstall: `helm uninstall ${helmReleaseName}`,
     },
-  }));
+  };
+});
 
 // Deployment summary
 export const deploymentSummary = pulumi
-  .all([companyName, cloudProvider, endpoints, dnsInfo])
-  .apply(([company, provider, serviceEndpoints, dns]) => ({
+  .all([deploymentOutputs, endpoints, dnsInfo])
+  .apply(([outputs, serviceEndpoints, dns]: [any, any, any]) => ({
     status: "✅ Deployment Complete",
-    company: company,
-    provider: provider.toUpperCase(),
+    company: companyName,
+    provider: cloudProvider.toUpperCase(),
+    deploymentType: deploymentType,
+    namespace: namespace || "default",
     domains: dns.domains,
     endpoints: serviceEndpoints,
     nextSteps: [
@@ -293,7 +440,7 @@ export const deploymentSummary = pulumi
       "4. Configure monitoring and alerting",
     ],
     quickCommands: {
-      saveKubeconfig: `pulumi stack output kubeconfig > ${company}-kubeconfig.yaml`,
+      saveKubeconfig: `pulumi stack output kubeconfig > ${companyName}-kubeconfig.yaml`,
       checkDeployment: "kubectl get pods,services,ingress",
       testHealth: `curl -k https://${dns.domains[0]}/health`,
     },

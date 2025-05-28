@@ -1,4 +1,5 @@
 # GCP-specific values for iaas-rafiki Helm chart
+# Streamlined single deployment model optimized for Google Cloud Platform
 companyName: mycompany
 
 # Global settings
@@ -269,3 +270,10 @@ gcp:
       type: HTTP
       requestPath: /healthz
       port: 80
+
+# AWS-specific configurations (disabled for GCP)
+aws:
+  loadBalancer:
+    enabled: false
+  acm:
+    enabled: false

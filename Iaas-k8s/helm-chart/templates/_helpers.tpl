@@ -92,3 +92,35 @@ Usage: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.
 {{- define "iaas-rafiki.componentFullname" -}}
 {{- printf "%s-%s" .context.Release.Name .componentName | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
+
+{{/*
+Return the target namespace for resources
+*/}}
+{{- define "iaas-rafiki.namespace" -}}
+{{- if .Values.namespace -}}
+{{- .Values.namespace -}}
+{{- else -}}
+{{- .Release.Namespace -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Create namespace-aware resource labels
+*/}}
+{{- define "iaas-rafiki.namespaceLabels" -}}
+{{- if and .Values.namespace .Values.deploymentType }}
+iaas.deployment/namespace: {{ .Values.namespace }}
+iaas.deployment/type: {{ .Values.deploymentType }}
+{{- end }}
+{{- if .Values.companyName }}
+iaas.deployment/company: {{ .Values.companyName }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Enhanced labels including namespace information
+*/}}
+{{- define "iaas-rafiki.enhancedLabels" -}}
+{{ include "iaas-rafiki.labels" . }}
+{{- include "iaas-rafiki.namespaceLabels" . | nindent 0 }}
+{{- end -}}

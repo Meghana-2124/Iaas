@@ -1,0 +1,21 @@
+{
+  "region": "us-west-2",
+  "availabilityZones": ["us-west-2a", "us-west-2b", "us-west-2c"],
+  "vpcCidr": "10.0.0.0/16",
+  "clusterVersion": "1.28",
+  "nodeGroups": [
+    {
+      "name": "workers",
+      "instanceTypes": ["t3.large"],
+      "minSize": 2,
+      "maxSize": 10,
+      "desiredSize": 3
+    }
+  ],
+  "enableLogging": true,
+  "enableNetworkPolicy": true,
+  "tags": {
+    "Environment": "production",
+    "ManagedBy": "iaas-deployment"
+  }
+}

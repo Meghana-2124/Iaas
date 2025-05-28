@@ -5,6 +5,7 @@ import {
   validateSecretsStructure,
   validateValuesStructure,
   validateAndProcessSecrets,
+  validateNamespaceConfiguration,
 } from "../utils/validation.js";
 import { DeploymentMonitor } from "../utils/monitoring.js";
 import { PulumiConfigManager } from "../utils/config-manager.js";
@@ -344,6 +345,9 @@ export async function handleDeployment(
     validateConfig = true,
     enableRollback = true,
     timeout = 1800, // 30 minutes default
+    // New namespace-based deployment parameters
+    namespace,
+    deploymentType,
   } = options;
 
   // Determine project name (e.g., from package.json or a fixed value)
@@ -351,8 +355,17 @@ export async function handleDeployment(
   const projectName = "iaas-k8s"; // Placeholder: Replace with actual project name
   const organizationName = "organization"; // Using "organization" as per error message
 
-  // Construct the fully qualified stack name
-  const fullyQualifiedStackName = `${organizationName}/${projectName}/${companyName}-${stackName}`;
+  // Construct the fully qualified stack name based on deployment type
+  let fullyQualifiedStackName: string;
+  if (deploymentType === "shared") {
+    // For shared deployments, use the namespace in the stack name
+    const effectiveNamespace =
+      namespace || `${companyName}-${stackName}`.toLowerCase();
+    fullyQualifiedStackName = `${organizationName}/${projectName}/shared-${effectiveNamespace}`;
+  } else {
+    // For dedicated deployments, use the original company-based naming
+    fullyQualifiedStackName = `${organizationName}/${projectName}/${companyName}-${stackName}`;
+  }
 
   // Initialize logger and progress callback
   const logger = new ConsoleLogger(logLevel);
@@ -412,6 +425,40 @@ export async function handleDeployment(
     }
 
     // =============================================================================
+    // Namespace and Deployment Type Validation
+    // =============================================================================
+    if (deploymentType === "shared" && !namespace) {
+      // Generate namespace automatically for shared deployments if not provided
+      const generatedNamespace = `${companyName}-${stackName}`.toLowerCase();
+      logger.info(
+        `Generated namespace for shared deployment: ${generatedNamespace}`
+      );
+      options.namespace = generatedNamespace;
+    }
+
+    if (namespace || deploymentType === "shared") {
+      const effectiveNamespace = namespace || options.namespace!;
+      const namespaceValidationErrors = validateNamespaceConfiguration(
+        effectiveNamespace,
+        deploymentType
+      );
+
+      if (namespaceValidationErrors.length > 0) {
+        const errorMessage = `Namespace validation failed: ${namespaceValidationErrors
+          .map((e: FieldValidationError) => `${e.field}: ${e.message}`)
+          .join(", ")}`;
+        throw new ConfigValidationError(
+          errorMessage,
+          namespaceValidationErrors
+        );
+      }
+
+      logger.info(
+        `Using namespace: ${effectiveNamespace} for ${deploymentType} deployment`
+      );
+    }
+
+    // =============================================================================
     // Health Checks
     // =============================================================================
     reportProgress("initializing", "Performing pre-deployment health checks");
@@ -440,6 +487,8 @@ export async function handleDeployment(
         valuesJson,
         companyName,
         helmChartPath,
+        namespace: namespace || options.namespace,
+        deploymentType,
       };
 
       const validationErrors = validateDeploymentConfig(config);
@@ -632,6 +681,16 @@ export async function handleDeployment(
           await stack!.setConfig("helmChartPath", { value: helmChartPath });
           logger.info("Set helmChartPath configuration");
         }
+
+        // Set namespace and deployment type configuration
+        const effectiveNamespace = namespace || options.namespace;
+        if (effectiveNamespace) {
+          await stack!.setConfig("namespace", { value: effectiveNamespace });
+          logger.info(`Set namespace configuration: ${effectiveNamespace}`);
+        }
+
+        await stack!.setConfig("deploymentType", { value: deploymentType });
+        logger.info(`Set deploymentType configuration: ${deploymentType}`);
       },
       logger,
       "configuration setup"

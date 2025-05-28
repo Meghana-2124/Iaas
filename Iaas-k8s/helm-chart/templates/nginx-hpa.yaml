@@ -3,8 +3,9 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.nginx.name "context" .) }}
+  namespace: {{ include "iaas-rafiki.namespace" . }}
   labels:
-    {{- include "iaas-rafiki.labels" . | nindent 4 }}
+    {{- include "iaas-rafiki.enhancedLabels" . | nindent 4 }}
     app.kubernetes.io/component: {{ .Values.nginx.name }}
 spec:
   scaleTargetRef:

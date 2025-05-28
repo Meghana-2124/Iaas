@@ -56,6 +56,18 @@ export const CloudConfigSchema = z.union([
   GcpCloudConfigSchema,
 ]);
 
+// Kubernetes namespace validation (DNS-1123 compliant)
+export const NamespaceSchema = z
+  .string()
+  .min(1, "Namespace name is required")
+  .max(63, "Namespace name must be 63 characters or less")
+  .regex(
+    /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/,
+    "Namespace name must be DNS-1123 compliant: lowercase letters, numbers, and hyphens only, starting and ending with alphanumeric"
+  );
+
+export const DeploymentTypeSchema = z.enum(["shared", "dedicated"]);
+
 export const DeploymentConfigSchema = z.object({
   stackName: z
     .string()
@@ -101,6 +113,10 @@ export const DeploymentConfigSchema = z.object({
   cloudProvider: z.enum(["aws", "gcp"]).optional(),
 
   helmChartPath: z.string().optional(),
+
+  namespace: NamespaceSchema.optional(),
+
+  deploymentType: DeploymentTypeSchema.optional(),
 });
 
 export const DeploymentOptionsSchema = z.object({
@@ -156,6 +172,9 @@ export const DeploymentOptionsSchema = z.object({
   cloudProvider: z.enum(["aws", "gcp"]).optional(),
   cloudConfig: CloudConfigSchema.optional(),
   autoSetupConfig: z.boolean().optional(),
+  // Namespace-based deployment support
+  namespace: NamespaceSchema.optional(),
+  deploymentType: DeploymentTypeSchema,
 });
 
 // =============================================================================
@@ -613,4 +632,65 @@ export function isValidDeploymentStatus(
   status: string
 ): status is z.infer<typeof DeploymentStatusSchema> {
   return DeploymentStatusSchema.safeParse(status).success;
+}
+
+export function isValidNamespace(
+  namespace: string
+): namespace is z.infer<typeof NamespaceSchema> {
+  return NamespaceSchema.safeParse(namespace).success;
+}
+
+export function isValidDeploymentType(
+  deploymentType: string
+): deploymentType is z.infer<typeof DeploymentTypeSchema> {
+  return DeploymentTypeSchema.safeParse(deploymentType).success;
+}
+
+// =============================================================================
+// Namespace-specific Validation Functions
+// =============================================================================
+
+export function validateNamespaceConfiguration(
+  namespace: string,
+  deploymentType: "shared" | "dedicated"
+): FieldValidationError[] {
+  const errors: FieldValidationError[] = [];
+
+  // Validate namespace name
+  if (!isValidNamespace(namespace)) {
+    errors.push({
+      field: "namespace",
+      message:
+        "Invalid namespace name. Must be DNS-1123 compliant: lowercase letters, numbers, and hyphens only, starting and ending with alphanumeric characters, max 63 chars",
+      value: namespace,
+    });
+  }
+
+  // For shared deployments, namespace is required
+  if (deploymentType === "shared" && !namespace) {
+    errors.push({
+      field: "namespace",
+      message: "Namespace is required for shared cluster deployments",
+      value: namespace,
+    });
+  }
+
+  // Reserved namespace names
+  const reservedNamespaces = [
+    "default",
+    "kube-system",
+    "kube-public",
+    "kube-node-lease",
+    "kubernetes-dashboard",
+  ];
+
+  if (reservedNamespaces.includes(namespace)) {
+    errors.push({
+      field: "namespace",
+      message: `Namespace '${namespace}' is reserved and cannot be used for deployments`,
+      value: namespace,
+    });
+  }
+
+  return errors;
 }

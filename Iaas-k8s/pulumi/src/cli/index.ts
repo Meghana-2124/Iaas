@@ -98,6 +98,18 @@ async function main() {
             type: "string",
             demandOption: true,
           })
+          .option("namespace", {
+            describe:
+              "Kubernetes namespace for shared deployments (auto-generated if not provided)",
+            type: "string",
+          })
+          .option("deploymentType", {
+            describe:
+              "Deployment type: shared (namespace-based) or dedicated (separate cluster)",
+            type: "string",
+            choices: ["shared", "dedicated"],
+            default: "dedicated",
+          })
           .help(),
       async (args) => {
         // Prefer file input if provided
@@ -158,6 +170,8 @@ async function main() {
           validateConfig: args.validateConfig,
           enableRollback: args.enableRollback,
           timeout: args.timeout,
+          namespace: args.namespace,
+          deploymentType: args.deploymentType as "shared" | "dedicated",
         };
         try {
           await handleDeployment(options);

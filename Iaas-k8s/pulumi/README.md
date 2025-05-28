@@ -1,6 +1,24 @@
 # IaaS K8s Deployment Package
 
-This is a **TypeScript package** for deploying Kubernetes infrastructure across multiple cloud providers (AWS, GCP) using Pulumi automation. It can be used as a library or CLI tool to provision and manage Kubernetes clusters and deploy Helm charts in a multi-cloud environment.
+This is a **TypeScript package** for deploying Kubernetes infrastructure across multiple cloud providers (AWS, GCP) using Pulumi automation. It supports both **dedicated** and **shared** deployment types for cost optimization and resource efficiency.
+
+## 🚀 New: Deployment Types
+
+### Dedicated Deployments (Default)
+
+- Creates a new Kubernetes cluster for each company
+- Complete infrastructure isolation
+- Higher cost, maximum security
+- Existing behavior - fully backward compatible
+
+### Shared Deployments (New)
+
+- Reuses existing Kubernetes clusters across multiple companies
+- Namespace-level isolation
+- Significant cost savings through resource sharing
+- Automatic cluster lookup and creation if not found
+
+See [DEPLOYMENT_TYPES.md](./DEPLOYMENT_TYPES.md) for detailed documentation.
 
 ## How to Run
 
@@ -30,13 +48,30 @@ This is a **TypeScript package** for deploying Kubernetes infrastructure across 
 
 5. **Run a deployment (CLI example)**:
 
+   ### Dedicated Deployment (Default)
+
    ```bash
-   npm run dev -- up dev \
+   npm run dev -- \
+     --companyName mycompany \
+     --secretsFile ./config/secrets.json \
+     --valuesFile ./config/values.json \
+     --cloudProvider aws \
+     --cloudConfigFile ./config/aws.json \
+     --deploymentType dedicated \
+     --autoSetupConfig
+   ```
+
+   ### Shared Deployment (Cost-Optimized)
+
+   ```bash
+   npm run dev -- \
      --companyName mycompany \
      --secretsFile ./config/secrets.json \
      --valuesFile ./config/values.json \
      --cloudProvider gcp \
      --cloudConfigFile ./config/gcp.json \
+     --deploymentType shared \
+     --namespace mycompany-prod \
      --autoSetupConfig
    ```
 

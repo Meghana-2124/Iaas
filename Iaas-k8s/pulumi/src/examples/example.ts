@@ -23,6 +23,7 @@ async function enhancedDeploymentExample() {
   const options: DeploymentOptions = {
     action: "up",
     stackName: "acme-corp-dev",
+    deploymentType: "dedicated",
     secretsJson: JSON.stringify({
       // These would typically come from your secret management system
       dbPassword: "supersecret123",
@@ -214,6 +215,7 @@ async function multiCompanyEnhancedExample() {
     const options: DeploymentOptions = {
       action: "preview", // Use preview to see what would be deployed
       stackName: `${company.name}-${company.env}`,
+      deploymentType: "dedicated",
       secretsJson: JSON.stringify(company.secrets),
       valuesJson: JSON.stringify(company.values),
       companyName: company.name,
@@ -295,6 +297,7 @@ async function errorHandlingExample() {
   const invalidOptions: DeploymentOptions = {
     action: "up",
     stackName: "invalid-stack-name!@#", // Invalid characters
+    deploymentType: "dedicated",
     secretsJson: "invalid-json", // Invalid JSON
     valuesJson: JSON.stringify({ environment: "test" }),
     companyName: "", // Empty company name
