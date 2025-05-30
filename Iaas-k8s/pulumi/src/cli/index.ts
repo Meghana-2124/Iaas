@@ -17,7 +17,7 @@ const consoleLogger: Logger = {
 
 // CLI entry point with auto-setup-config support
 async function main() {
-  const argv = addTierCommands(yargs(hideBin(process.argv)))
+  const argv = addTierCommands(yargs(hideBin(process.argv)), consoleLogger)
     .scriptName("iaas-deploy")
     .usage("$0 <action> <stackName> [options]")
     .command(
@@ -122,7 +122,8 @@ async function main() {
             default: "dedicated",
           })
           .option("planTier", {
-            describe: "Plan tier for shared deployments (basic, standard, premium, enterprise)",
+            describe:
+              "Plan tier for shared deployments (basic, standard, premium, enterprise)",
             type: "string",
             choices: ["basic", "standard", "premium", "enterprise"],
           })

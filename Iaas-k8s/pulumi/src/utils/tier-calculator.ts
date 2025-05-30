@@ -416,7 +416,7 @@ export class TierCalculator {
   /**
    * Generate Kubernetes ResourceQuota for tier
    */
-  private generateResourceQuota(
+  public generateResourceQuota(
     tierConfig: TierConfiguration,
     namespace: string
   ): any {
@@ -453,7 +453,7 @@ export class TierCalculator {
   /**
    * Generate Kubernetes LimitRange for tier
    */
-  private generateLimitRange(
+  public generateLimitRange(
     tierConfig: TierConfiguration,
     namespace: string
   ): any {
