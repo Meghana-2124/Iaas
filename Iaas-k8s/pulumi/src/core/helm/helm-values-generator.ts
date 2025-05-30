@@ -1,4 +1,6 @@
 import type { Logger, DeploymentOptions } from "../../types/index.js";
+import { TierCalculator } from "../../utils/tier-calculator.js";
+import { PlanTier } from "../../types/plans.js";
 
 // =============================================================================
 // Helm Chart Values Generation
@@ -141,11 +143,107 @@ interface HelmChartValues {
     allowIngressFrom?: Array<Record<string, any>>;
     allowEgressTo?: Array<{
       cidr?: string;
+      namespaceSelector?: Record<string, any>;
       ports?: Array<{
         port: number;
         protocol: string;
       }>;
     }>;
+    allowEgressPorts?: Array<{
+      port: number;
+      protocol: string;
+    }>;
+  };
+
+  // Phase 1 Critical Parameter Generation
+  monitoring?: {
+    dashboards: {
+      enabled: boolean;
+    };
+  };
+
+  tierConfig?: {
+    costBudget: number;
+  };
+
+  tierResources?: {
+    cpu: string;
+    memory: string;
+  };
+
+  kubecost?: {
+    enabled: boolean;
+    prometheus: {
+      fqdn: string;
+    };
+    "cost-analyzer": {
+      nodeSelector: Record<string, string>;
+      tolerations: Array<any>;
+    };
+    networkCosts: {
+      enabled: boolean;
+    };
+    clusterName: string;
+  };
+
+  tierResourceQuota?: {
+    enabled: boolean;
+    requests: {
+      cpu: string;
+      memory: string;
+      storage: string;
+    };
+    limits: {
+      cpu: string;
+      memory: string;
+      storage: string;
+    };
+    claims: {
+      "persistent-volume-claims": string;
+    };
+  };
+
+  gcp?: {
+    backendConfig?: {
+      healthCheck: {
+        checkIntervalSec: number;
+        port: number;
+        type: string;
+        requestPath: string;
+      };
+    };
+    managedCertificate?: {
+      enabled: boolean;
+      domains: string[];
+    };
+  };
+
+  aws?: {
+    loadBalancer?: {
+      healthCheck: {
+        enabled: boolean;
+        intervalSeconds: number;
+        path: string;
+        port: string;
+        protocol: string;
+        timeoutSeconds: number;
+        unhealthyThresholdCount: number;
+        healthyThresholdCount: number;
+      };
+    };
+  };
+
+  kubernetesSecrets?: {
+    rafikiAuth: {
+      create: boolean;
+      name: string;
+      stringData: Record<string, any>;
+    };
+    rafikiBackend: {
+      create: boolean;
+      name: string;
+      stringData: Record<string, any>;
+    };
   };
 }
 
@@ -386,8 +484,165 @@ export function generateDynamicHelmValues(
     helmValues.networkPolicy = { enabled: false };
   }
 
-  logger.info("Dynamic Helm chart values generated successfully");
-  return helmValues;
+  // =========================================================================
+  // Phase 1 Critical Parameter Generation
+  // =========================================================================
+
+  // Initialize tier calculator for monitoring and resource calculations
+  const tierCalculator = new TierCalculator(logger);
+  const tier = (options.planTier as PlanTier) || PlanTier.BASIC;
+
+  // Add monitoring dashboard configuration
+  const monitoring = {
+    dashboards: {
+      enabled:
+        options.deploymentType === "shared" ||
+        options.deploymentType === "dedicated",
+    },
+  };
+
+  // Add tier configuration for monitoring dashboards
+  const tierConfig = {
+    costBudget: tierCalculator.getTierBudget(tier),
+  };
+
+  // Add tier resources for monitoring dashboards
+  const tierResources = {
+    cpu: tierCalculator.getTierCpuLimits(tier),
+    memory: tierCalculator.getTierMemoryLimits(tier),
+  };
+
+  // Add Kubecost configuration
+  const kubecost = {
+    enabled: options.kubecostEnabled ?? true,
+    prometheus: {
+      fqdn: options.prometheusFqdn ?? `prometheus.${defaultDomain}`,
+    },
+    "cost-analyzer": {
+      nodeSelector: (options.cloudProvider === "gcp"
+        ? { "cloud.google.com/gke-nodepool": "default-pool" }
+        : { "kubernetes.io/os": "linux" }) as Record<string, string>,
+      tolerations: [],
+    },
+    networkCosts: {
+      enabled: options.deploymentType === "dedicated",
+    },
+    clusterName:
+      options.clusterName ||
+      `${options.companyName}-${options.environment || "default"}`,
+  };
+
+  // Add enhanced network policy configuration
+  if (helmValues.networkPolicy && helmValues.networkPolicy.enabled) {
+    helmValues.networkPolicy.allowIngressFrom = [
+      { namespaceSelector: { matchLabels: { name: "kube-system" } } },
+      { namespaceSelector: { matchLabels: { name: "monitoring" } } },
+      { namespaceSelector: { matchLabels: { name: "ingress-nginx" } } },
+    ];
+    helmValues.networkPolicy.allowEgressTo = [
+      { namespaceSelector: { matchLabels: { name: "kube-system" } } },
+    ];
+    helmValues.networkPolicy.allowEgressPorts = [
+      { port: 443, protocol: "TCP" },
+      { port: 53, protocol: "UDP" },
+      { port: 53, protocol: "TCP" },
+      { port: 5432, protocol: "TCP" },
+      { port: 6379, protocol: "TCP" },
+    ];
+  }
+
+  // Add resource quota configuration for shared deployments
+  const tierResourceQuota = {
+    enabled: options.deploymentType === "shared",
+    requests: {
+      cpu: tierCalculator.getTierResourceQuota(tier, "cpu", "requests"),
+      memory: tierCalculator.getTierResourceQuota(tier, "memory", "requests"),
+      storage: tierCalculator.getTierResourceQuota(tier, "storage", "requests"),
+    },
+    limits: {
+      cpu: tierCalculator.getTierResourceQuota(tier, "cpu", "limits"),
+      memory: tierCalculator.getTierResourceQuota(tier, "memory", "limits"),
+      storage: tierCalculator.getTierResourceQuota(tier, "storage", "limits"),
+    },
+    claims: {
+      "persistent-volume-claims": tierCalculator.getTierResourceQuota(
+        tier,
+        "storage",
+        "claims"
+      ),
+    },
+  };
+
+  // Add cloud-specific configurations
+  const gcp = {
+    ...(options.cloudProvider === "gcp"
+      ? {
+          backendConfig: {
+            healthCheck: {
+              checkIntervalSec: 60,
+              port: 8080,
+              type: "HTTP",
+              requestPath: "/health",
+            },
+          },
+          managedCertificate: {
+            enabled: options.managedCertificateEnabled ?? true,
+            domains: [defaultDomain, `*.${defaultDomain}`],
+          },
+        }
+      : {}),
+  };
+
+  const aws = {
+    ...(options.cloudProvider === "aws"
+      ? {
+          loadBalancer: {
+            healthCheck: {
+              enabled: true,
+              intervalSeconds: 30,
+              path: "/health",
+              port: "traffic-port",
+              protocol: "HTTP",
+              timeoutSeconds: 5,
+              unhealthyThresholdCount: 2,
+              healthyThresholdCount: 2,
+            },
+          },
+        }
+      : {}),
+  };
+
+  // Add Kubernetes secrets configuration
+  const kubernetesSecrets = {
+    rafikiAuth: {
+      create: options.createKubernetesSecrets ?? false,
+      name: `${options.companyName}-rafiki-auth-secret`,
+      stringData: {}, // Will be populated by secrets manager
+    },
+    rafikiBackend: {
+      create: options.createKubernetesSecrets ?? false,
+      name: `${options.companyName}-rafiki-backend-secret`,
+      stringData: {}, // Will be populated by secrets manager
+    },
+  };
+
+  // Merge all new configurations into helmValues
+  const enhancedHelmValues = {
+    ...helmValues,
+    monitoring,
+    tierConfig,
+    tierResources,
+    kubecost,
+    tierResourceQuota,
+    gcp,
+    aws,
+    kubernetesSecrets,
+  };
+
+  logger.info(
+    "Dynamic Helm chart values generated successfully with enhanced parameter coverage"
+  );
+  return enhancedHelmValues;
 }
 
 export function mergeHelmValues(

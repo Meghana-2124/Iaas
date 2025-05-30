@@ -110,6 +110,13 @@ export interface DeploymentOptions {
       protocol: "TCP" | "UDP";
     }>;
   }>; // External egress rules for network policies
+
+  // Additional monitoring and cloud configuration properties
+  prometheusFqdn?: string; // FQDN for Prometheus monitoring
+  clusterName?: string; // Kubernetes cluster name
+  environment?: string; // Deployment environment (dev, staging, prod)
+  managedCertificateEnabled?: boolean; // Enable managed certificates (GCP/AWS)
+  createKubernetesSecrets?: boolean; // Enable Kubernetes secrets creation
 }
 
 export interface AwsCloudConfig {

@@ -664,6 +664,112 @@ export class TierCalculator {
     const tierConfig = getTierConfiguration(planTier);
     return this.generateHelmValues(tierConfig, companyName, namespace, options);
   }
+
+  /**
+   * Get tier budget for monitoring dashboards
+   */
+  getTierBudget(tier: PlanTier): number {
+    const tierDef = PLAN_TIER_DEFINITIONS[tier];
+    if (!tierDef) {
+      this.logger.warn(
+        `Unknown tier: ${tier}, defaulting to basic tier budget`
+      );
+      return PLAN_TIER_DEFINITIONS[PlanTier.BASIC].monthlyPriceUSD;
+    }
+    return tierDef.monthlyPriceUSD;
+  }
+
+  /**
+   * Get tier CPU limits for monitoring dashboards
+   */
+  getTierCpuLimits(tier: PlanTier): string {
+    const tierDef = PLAN_TIER_DEFINITIONS[tier];
+    if (!tierDef) {
+      this.logger.warn(
+        `Unknown tier: ${tier}, defaulting to basic tier CPU limits`
+      );
+      return PLAN_TIER_DEFINITIONS[PlanTier.BASIC].quota.limits.cpu;
+    }
+    return tierDef.quota.limits.cpu;
+  }
+
+  /**
+   * Get tier memory limits for monitoring dashboards
+   */
+  getTierMemoryLimits(tier: PlanTier): string {
+    const tierDef = PLAN_TIER_DEFINITIONS[tier];
+    if (!tierDef) {
+      this.logger.warn(
+        `Unknown tier: ${tier}, defaulting to basic tier memory limits`
+      );
+      return PLAN_TIER_DEFINITIONS[PlanTier.BASIC].quota.limits.memory;
+    }
+    return tierDef.quota.limits.memory;
+  }
+
+  /**
+   * Get tier resource quota values
+   */
+  getTierResourceQuota(
+    tier: PlanTier,
+    resource: string,
+    type: "requests" | "limits" | "claims"
+  ): string {
+    const tierDef = PLAN_TIER_DEFINITIONS[tier];
+    if (!tierDef) {
+      this.logger.warn(`Unknown tier: ${tier}, defaulting to basic tier`);
+      const basicTier = PLAN_TIER_DEFINITIONS[PlanTier.BASIC];
+      return this.getResourceQuotaValue(basicTier, resource, type);
+    }
+    return this.getResourceQuotaValue(tierDef, resource, type);
+  }
+
+  /**
+   * Helper method to extract resource quota values
+   */
+  private getResourceQuotaValue(
+    tierDef: TierResourceAllocation,
+    resource: string,
+    type: "requests" | "limits" | "claims"
+  ): string {
+    switch (type) {
+      case "requests":
+        switch (resource) {
+          case "cpu":
+            return tierDef.quota.requests.cpu;
+          case "memory":
+            return tierDef.quota.requests.memory;
+          case "storage":
+            return tierDef.quota.requests.storage;
+          default:
+            this.logger.warn(`Unknown resource for requests: ${resource}`);
+            return "0";
+        }
+      case "limits":
+        switch (resource) {
+          case "cpu":
+            return tierDef.quota.limits.cpu;
+          case "memory":
+            return tierDef.quota.limits.memory;
+          case "storage":
+            return tierDef.quota.limits.storage;
+          default:
+            this.logger.warn(`Unknown resource for limits: ${resource}`);
+            return "0";
+        }
+      case "claims":
+        if (resource === "storage") {
+          return tierDef.maxPersistentVolumeClaims.toString();
+        }
+        this.logger.warn(
+          `Claims type only supports storage resource, got: ${resource}`
+        );
+        return "0";
+      default:
+        this.logger.warn(`Unknown quota type: ${type}`);
+        return "0";
+    }
+  }
 }
 
 /**
