@@ -105,9 +105,9 @@ async function main() {
             demandOption: true,
           })
           .option("valuesFile", {
-            describe: "Path to values JSON file",
+            describe:
+              "Path to values JSON file (optional - used only for overrides after dynamic generation)",
             type: "string",
-            demandOption: true,
           })
           .option("namespace", {
             describe:
@@ -132,6 +132,92 @@ async function main() {
             type: "boolean",
             default: false,
           })
+          .option("defaultDomain", {
+            describe:
+              "Default domain for constructing hostnames (e.g., 'example.com')",
+            type: "string",
+            default: "example.com",
+          })
+          .option("enableRafikiAuth", {
+            describe: "Enable rafiki-auth service",
+            type: "boolean",
+            default: true,
+          })
+          .option("enableRafikiBackend", {
+            describe: "Enable rafiki-backend service",
+            type: "boolean",
+            default: true,
+          })
+          .option("enableNginx", {
+            describe: "Enable nginx service",
+            type: "boolean",
+            default: true,
+          })
+          .option("enableRedis", {
+            describe: "Enable redis service",
+            type: "boolean",
+            default: true,
+          })
+          .option("rafikiAuthImageRepository", {
+            describe: "Docker repository for rafiki-auth image",
+            type: "string",
+            default: "ghcr.io/interledger/rafiki-auth",
+          })
+          .option("rafikiAuthImageTag", {
+            describe: "Docker tag for rafiki-auth image",
+            type: "string",
+            default: "v1.0.0-alpha.20",
+          })
+          .option("rafikiBackendImageRepository", {
+            describe: "Docker repository for rafiki-backend image",
+            type: "string",
+            default: "ghcr.io/interledger/rafiki-backend",
+          })
+          .option("rafikiBackendImageTag", {
+            describe: "Docker tag for rafiki-backend image",
+            type: "string",
+            default: "v1.0.0-alpha.20",
+          })
+          .option("nginxImageRepository", {
+            describe: "Docker repository for nginx image",
+            type: "string",
+            default: "nginx",
+          })
+          .option("nginxImageTag", {
+            describe: "Docker tag for nginx image",
+            type: "string",
+            default: "latest",
+          })
+          .option("redisImageRepository", {
+            describe: "Docker repository for redis image",
+            type: "string",
+            default: "redis",
+          })
+          .option("redisImageTag", {
+            describe: "Docker tag for redis image",
+            type: "string",
+            default: "7-alpine",
+          })
+          .option("ingressClassName", {
+            describe: "Ingress class name for the Ingress resource",
+            type: "string",
+            default: "nginx",
+          })
+          .option("dedicatedDeploymentHpaEnabledByDefault", {
+            describe: "Enable HPA by default for dedicated deployments",
+            type: "boolean",
+            default: true,
+          })
+          .option("sharedDeploymentNetworkPolicyEnabled", {
+            describe: "Enable network policies for shared deployments",
+            type: "boolean",
+            default: true,
+          })
+          .option("ingressControllerNamespace", {
+            describe: "Namespace of the ingress controller",
+            type: "string",
+            default: "ingress-nginx",
+          })
           .help(),
       async (args: any) => {
         // Add logger to args for tier commands
@@ -139,7 +225,7 @@ async function main() {
 
         // Prefer file input if provided
         let secretsJson = args.secretsJson || "{}"; // Default to empty JSON if not provided
-        let valuesJson = args.valuesJson || "{}"; // Default to empty JSON if not provided
+        let valuesJson = undefined; // No default for values, will be generated dynamically
         let cloudConfig = undefined as any; // Default to undefined if not provided
         const fs = await import("fs");
         if (args.secretsFile) {
@@ -155,12 +241,17 @@ async function main() {
         if (args.valuesFile) {
           try {
             valuesJson = fs.readFileSync(args.valuesFile, "utf8");
+            console.log(
+              `[INFO] Loaded values file for overrides: ${args.valuesFile}`
+            );
           } catch (e) {
             console.error(
               `Failed to read values file: ${args.valuesFile}\n${e}`
             );
             process.exit(1);
           }
+        } else if (args.valuesJson) {
+          valuesJson = args.valuesJson;
         }
         // Prefer cloudConfigFile if provided
         if (args.cloudConfigFile) {
@@ -199,6 +290,54 @@ async function main() {
           deploymentType: args.deploymentType as "shared" | "dedicated",
           planTier: args.planTier as any,
           kubecostEnabled: args.kubecostEnabled,
+
+          // Dynamic Helm values configuration
+          defaultDomain: args.defaultDomain,
+          enableRafikiAuth: args.enableRafikiAuth,
+          enableRafikiBackend: args.enableRafikiBackend,
+          enableNginx: args.enableNginx,
+          enableRedis: args.enableRedis,
+          rafikiAuthImage: {
+            repository: args.rafikiAuthImageRepository,
+            tag: args.rafikiAuthImageTag,
+            pullPolicy: "IfNotPresent",
+          },
+          rafikiBackendImage: {
+            repository: args.rafikiBackendImageRepository,
+            tag: args.rafikiBackendImageTag,
+            pullPolicy: "IfNotPresent",
+          },
+          nginxImage: {
+            repository: args.nginxImageRepository,
+            tag: args.nginxImageTag,
+            pullPolicy: "IfNotPresent",
+          },
+          redisImage: {
+            repository: args.redisImageRepository,
+            tag: args.redisImageTag,
+            pullPolicy: "IfNotPresent",
+          },
+          ingressClassName: args.ingressClassName,
+          dedicatedDeploymentHpaEnabledByDefault:
+            args.dedicatedDeploymentHpaEnabledByDefault,
+          sharedDeploymentNetworkPolicyEnabled:
+            args.sharedDeploymentNetworkPolicyEnabled,
+          ingressControllerNamespace: args.ingressControllerNamespace,
+          ingressControllerPodSelectorLabels: {
+            "app.kubernetes.io/name": "ingress-nginx",
+          },
+          allowedExternalEgressRules: [
+            {
+              cidr: "0.0.0.0/0",
+              ports: [
+                { port: 53, protocol: "UDP" }, // DNS
+                { port: 53, protocol: "TCP" }, // DNS over TCP
+                { port: 443, protocol: "TCP" }, // HTTPS
+                { port: 5432, protocol: "TCP" }, // PostgreSQL
+                { port: 6379, protocol: "TCP" }, // Redis
+              ],
+            },
+          ],
         };
         try {
           await handleDeployment(options);
@@ -212,7 +351,9 @@ async function main() {
     .epilog(
       "--autoSetupConfig: If set, the CLI will automatically configure the Pulumi stack for you (cloud provider, region, etc). " +
         "You can also pass --cloudConfig as a JSON string or --cloudConfigFile as a JSON file for advanced cloud setup.\n" +
-        "--secretsFile/--valuesFile: Use these to provide secrets/values as JSON files instead of raw JSON strings. If both a file and a string are provided, the file takes precedence."
+        "--secretsFile/--valuesFile: Use these to provide secrets/values as JSON files instead of raw JSON strings. " +
+        "valuesFile is now optional and used only for overrides after dynamic Helm values generation. " +
+        "If both a file and a string are provided, the file takes precedence."
     )
     .strict();
 

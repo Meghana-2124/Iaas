@@ -2,19 +2,28 @@
 
 This is a **TypeScript package** for deploying Kubernetes infrastructure across multiple cloud providers (AWS, GCP) using Pulumi automation. It supports both **dedicated** and **shared** deployment types for cost optimization and resource efficiency.
 
-## 🚀 New: Deployment Types
+## 🚀 New Features
 
-### Dedicated Deployments (Default)
+### Dynamic Helm Values Generation
+
+- **Automatic configuration**: No longer requires manual Helm values files
+- **Cloud provider-aware defaults**: Automatically configures images and settings based on your cloud provider
+- **Optional overrides**: Use `--valuesFile` only when you need to override generated defaults
+- **Smart merging**: Combines dynamic values + tier allocation + user overrides seamlessly
+
+### Deployment Types
+
+#### Dedicated Deployments (Default)
 
 - Creates a new Kubernetes cluster for each company
 - Complete infrastructure isolation
 - Higher cost, maximum security
-- Existing behavior - fully backward compatible
+- Auto-configures HPA (Horizontal Pod Autoscaling) for optimal performance
 
-### Shared Deployments (New)
+#### Shared Deployments (Cost-Optimized)
 
 - Reuses existing Kubernetes clusters across multiple companies
-- Namespace-level isolation
+- Namespace-level isolation with automatic network policies
 - Significant cost savings through resource sharing
 - Automatic cluster lookup and creation if not found
 
@@ -51,10 +60,9 @@ See [DEPLOYMENT_TYPES.md](./DEPLOYMENT_TYPES.md) for detailed documentation.
    ### Dedicated Deployment (Default)
 
    ```bash
-   npm run dev -- \
+   npm run dev -- up my-stack \
      --companyName mycompany \
      --secretsFile ./config/secrets.json \
-     --valuesFile ./config/values.json \
      --cloudProvider aws \
      --cloudConfigFile ./config/aws.json \
      --deploymentType dedicated \
@@ -64,14 +72,28 @@ See [DEPLOYMENT_TYPES.md](./DEPLOYMENT_TYPES.md) for detailed documentation.
    ### Shared Deployment (Cost-Optimized)
 
    ```bash
-   npm run dev -- \
+   npm run dev -- up my-stack \
      --companyName mycompany \
      --secretsFile ./config/secrets.json \
-     --valuesFile ./config/values.json \
      --cloudProvider gcp \
      --cloudConfigFile ./config/gcp.json \
      --deploymentType shared \
      --namespace mycompany-prod \
+     --autoSetupConfig
+   ```
+
+   ### With Custom Configuration (Optional)
+
+   You can still provide a values file for specific overrides:
+
+   ```bash
+   npm run dev -- up my-stack \
+     --companyName mycompany \
+     --secretsFile ./config/secrets.json \
+     --valuesFile ./config/values-overrides.json \
+     --cloudProvider aws \
+     --cloudConfigFile ./config/aws.json \
+     --deploymentType dedicated \
      --autoSetupConfig
    ```
 
@@ -151,23 +173,36 @@ if (result.success) {
 }
 ```
 
-### As CLI Tool (Recommended: Use JSON Files)
+### As CLI Tool (Dynamic Values Generation)
 
-After installation, you can use the CLI command with file-based config:
+The CLI now automatically generates Helm values based on your deployment configuration:
 
 ```bash
 iaas-deploy up my-stack \
   --companyName mycompany \
   --secretsFile ./config/secrets.json \
-  --valuesFile ./config/values.json \
   --cloudProvider aws \
   --cloudConfigFile ./config/cloudConfig.json \
   --autoSetupConfig
 ```
 
-- `--secretsFile` and `--valuesFile` let you provide secrets/values as JSON files (recommended for security and maintainability).
-- `--cloudConfigFile` lets you provide cloud provider config as a JSON file (recommended).
-- `--autoSetupConfig` tells the CLI to set all Pulumi config for you (no manual `pulumi config set ...` required).
+**Key Changes:**
+
+- `--valuesFile` is now **optional** - the system generates comprehensive Helm values automatically
+- Values are dynamically created based on your cloud provider, deployment type, and configuration options
+- Use `--valuesFile` only when you need to override the generated defaults
+
+**Example with optional overrides:**
+
+```bash
+iaas-deploy up my-stack \
+  --companyName mycompany \
+  --secretsFile ./config/secrets.json \
+  --valuesFile ./config/custom-overrides.json \
+  --cloudProvider aws \
+  --cloudConfigFile ./config/cloudConfig.json \
+  --autoSetupConfig
+```
 
 **Example for GCP:**
 
@@ -175,7 +210,6 @@ iaas-deploy up my-stack \
 iaas-deploy up dev \
   --companyName mycompany \
   --secretsFile ./config/secrets.json \
-  --valuesFile ./config/values.json \
   --cloudProvider gcp \
   --cloudConfigFile ./config/cloudConfig.gcp.json \
   --autoSetupConfig
@@ -198,13 +232,34 @@ iaas-deploy up dev \
 
 ## Configuration
 
-The package expects:
+The package now uses **dynamic value generation** with minimal configuration requirements:
+
+### Required Configuration
 
 1. **secretsFile**: Path to a JSON file containing sensitive configuration values
-2. **valuesFile**: Path to a JSON file containing non-sensitive configuration values
-3. **cloudConfigFile**: Path to a JSON file with cloud provider config
-4. **companyName**: String identifying the company/tenant
-5. **stackName**: Pulumi stack name (e.g., 'company-env')
+2. **companyName**: String identifying the company/tenant
+3. **stackName**: Pulumi stack name (e.g., 'company-env')
+4. **cloudProvider**: Target cloud provider ('aws' or 'gcp')
+5. **cloudConfigFile**: Path to a JSON file with cloud provider config
+
+### Optional Configuration
+
+1. **valuesFile**: Path to a JSON file for overriding generated defaults
+2. **deploymentType**: 'dedicated' (default) or 'shared'
+3. **namespace**: Kubernetes namespace (auto-generated for shared deployments)
+4. **planTier**: Resource tier for shared deployments ('basic', 'standard', 'premium')
+
+### Dynamic Configuration Options
+
+The CLI now supports extensive configuration options for fine-tuning your deployment:
+
+- **Service Control**: `--enableRafikiAuth`, `--enableRafikiBackend`, `--enableNginx`, `--enableRedis`
+- **Custom Images**: `--rafikiAuthImageRepository`, `--rafikiAuthImageTag`, etc.
+- **Domain Configuration**: `--defaultDomain` for automatic hostname generation
+- **HPA Settings**: `--dedicatedDeploymentHpaEnabledByDefault`
+- **Network Policies**: `--sharedDeploymentNetworkPolicyEnabled`
+
+Run `iaas-deploy --help` to see all available options.
 
 ## Multi-Cloud Support
 
@@ -212,6 +267,60 @@ The package automatically detects cloud provider based on Pulumi configuration:
 
 - AWS: Uses EKS for Kubernetes clusters
 - GCP: Uses GKE for Kubernetes clusters
+
+## Dynamic Helm Values Generation
+
+The package now automatically generates comprehensive Helm values based on your deployment configuration, eliminating the need for manual Helm values files in most cases.
+
+### How It Works
+
+1. **Base Generation**: Creates complete Helm values with sensible defaults
+2. **Cloud Provider Optimization**: Adjusts configurations based on AWS/GCP best practices
+3. **Deployment Type Configuration**:
+   - **Dedicated**: Enables HPA for optimal performance
+   - **Shared**: Configures network policies for security isolation
+4. **Tier Integration**: Merges resource allocations for shared deployments
+5. **User Overrides**: Applies any custom values from `--valuesFile`
+
+### Generated Configuration Includes
+
+- **Service Enablement**: All Rafiki services with appropriate defaults
+- **Image Configuration**: Cloud provider-optimized container images
+- **Networking**: Automatic hostname generation and ingress configuration
+- **Security**: Network policies for shared deployments
+- **Scaling**: HPA configuration for dedicated deployments
+- **Resource Management**: Tier-based resource allocation for shared deployments
+
+### Example Generated Values
+
+For a company named "acme" with domain "example.com":
+
+```yaml
+companyName: acme
+deploymentType: dedicated
+rafikiAuth:
+  enabled: true
+  image:
+    repository: ghcr.io/interledger/rafiki-auth
+    tag: v1.0.0-alpha.20
+  hpa:
+    enabled: true # Auto-enabled for dedicated deployments
+nginx:
+  config:
+    serverNameIlp: ilp.acme.example.com
+    serverNameAuth: auth-ilp.acme.example.com
+networkPolicy:
+  enabled: false # Disabled for dedicated, enabled for shared
+```
+
+### When to Use Values File
+
+Use `--valuesFile` only when you need to:
+
+- Override specific image tags or repositories
+- Customize resource limits beyond tier defaults
+- Add custom ingress annotations
+- Configure additional services or sidecars
 
 ## Return Values
 
@@ -229,27 +338,42 @@ interface DeploymentResult {
 
 ## Examples
 
-### Development Deployment (with auto-setup, file-based config)
+### Basic Deployment (Auto-Generated Configuration)
 
 ```bash
 iaas-deploy up acme-dev \
   --companyName acme \
   --secretsFile ./config/secrets.json \
-  --valuesFile ./config/values.json \
   --cloudProvider aws \
   --cloudConfigFile ./config/cloudConfig.aws.json \
   --autoSetupConfig
 ```
 
-### Production Deployment (with auto-setup, file-based config)
+### Shared Deployment with Tier (Cost-Optimized)
+
+```bash
+iaas-deploy up acme-dev \
+  --companyName acme \
+  --secretsFile ./config/secrets.json \
+  --cloudProvider gcp \
+  --cloudConfigFile ./config/cloudConfig.gcp.json \
+  --deploymentType shared \
+  --planTier premium \
+  --namespace acme-production \
+  --autoSetupConfig
+```
+
+### Custom Configuration with Overrides
 
 ```bash
 iaas-deploy up acme-prod \
   --companyName acme \
   --secretsFile ./config/secrets.json \
-  --valuesFile ./config/values.json \
+  --valuesFile ./config/custom-overrides.json \
   --cloudProvider aws \
   --cloudConfigFile ./config/cloudConfig.aws.json \
+  --defaultDomain "acme.com" \
+  --rafikiAuthImageTag "v2.0.0" \
   --autoSetupConfig
 ```
 

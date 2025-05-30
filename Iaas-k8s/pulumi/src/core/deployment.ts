@@ -704,11 +704,13 @@ export async function handleDeployment(
     // =============================================================================
     let tierAllocationResult: any;
     if (options.planTier && deploymentType === "shared") {
-      logger.info(`Processing tier-based deployment for ${options.planTier} tier`);
-      
+      logger.info(
+        `Processing tier-based deployment for ${options.planTier} tier`
+      );
+
       const tierCalculator = new TierCalculator(logger);
       const effectiveNamespace = namespace || options.namespace!;
-      
+
       // Calculate tier allocation
       tierAllocationResult = tierCalculator.calculateTierAllocation(
         options.planTier,
@@ -720,7 +722,9 @@ export async function handleDeployment(
       );
 
       if (!tierAllocationResult.success) {
-        const errorMessage = `Tier allocation failed: ${tierAllocationResult.errors.join(", ")}`;
+        const errorMessage = `Tier allocation failed: ${tierAllocationResult.errors.join(
+          ", "
+        )}`;
         logger.error(errorMessage);
         throw new ConfigValidationError(errorMessage, []);
       }
@@ -731,10 +735,16 @@ export async function handleDeployment(
         });
       }
 
-      logger.info(`Tier allocation calculated successfully for ${options.planTier} tier`);
-      logger.debug(`Estimated monthly cost: $${tierAllocationResult.estimatedCosts.monthly}`);
+      logger.info(
+        `Tier allocation calculated successfully for ${options.planTier} tier`
+      );
+      logger.debug(
+        `Estimated monthly cost: $${tierAllocationResult.estimatedCosts.monthly}`
+      );
     } else if (options.planTier && deploymentType === "dedicated") {
-      logger.warn("Plan tier specified for dedicated deployment - tier-based resource allocation is only supported for shared deployments");
+      logger.warn(
+        "Plan tier specified for dedicated deployment - tier-based resource allocation is only supported for shared deployments"
+      );
     }
 
     // =============================================================================
@@ -921,37 +931,40 @@ export async function handleDeployment(
           "Set helmSecretsJson configuration with processed secrets for stringData (as secret)"
         );
 
-        // Set Helm values JSON with tier-based integration
-        let finalValuesJson = valuesJson;
+        // Generate dynamic Helm values
+        logger.info("Generating dynamic Helm chart values");
+        const dynamicHelmValues = generateDynamicHelmValues(options, logger);
+
+        // Merge with tier-based values if applicable
+        let mergedHelmValues = dynamicHelmValues;
         if (tierAllocationResult && tierAllocationResult.success) {
-          // Merge tier-based Helm values with provided values
-          const baseValues = valuesJson ? JSON.parse(valuesJson) : {};
-          const tierValues = tierAllocationResult.helmValues;
-          
-          // Deep merge tier values with user-provided values (user values take precedence)
-          const mergedValues = {
-            ...tierValues,
-            ...baseValues,
-            // Ensure tier-specific labels are preserved
-            labels: {
-              ...tierValues.labels,
-              ...baseValues.labels,
-            },
-            // Merge resource quotas and limits
-            resources: {
-              ...tierValues.resources,
-              ...baseValues.resources,
-            },
-          };
-          
-          finalValuesJson = JSON.stringify(mergedValues);
-          logger.info(`Merged tier-based values for ${options.planTier} tier with user-provided values`);
+          logger.info(`Merging tier-based values for ${options.planTier} tier`);
+          mergedHelmValues = mergeHelmValues(
+            dynamicHelmValues,
+            tierAllocationResult.helmValues,
+            {},
+            logger
+          );
         }
-        
-        if (finalValuesJson) {
-          await stack!.setConfig("helmValuesJson", { value: finalValuesJson });
-          logger.info("Set helmValuesJson configuration");
+
+        // Apply user overrides if provided (valuesJson now used only for minimal overrides)
+        let finalHelmValues = mergedHelmValues;
+        if (valuesJson && valuesJson.trim() !== "" && valuesJson !== "{}") {
+          logger.info("Applying user override values from valuesJson");
+          const userOverrides = JSON.parse(valuesJson);
+          finalHelmValues = mergeHelmValues(
+            mergedHelmValues,
+            {},
+            userOverrides,
+            logger
+          );
         }
+
+        const finalValuesJson = JSON.stringify(finalHelmValues);
+        await stack!.setConfig("helmValuesJson", { value: finalValuesJson });
+        logger.info(
+          "Set helmValuesJson configuration with dynamically generated values"
+        );
 
         // Set company name
         await stack!.setConfig("companyName", { value: companyName });
@@ -1004,10 +1017,12 @@ export async function handleDeployment(
         }
 
         if (options.kubecostEnabled) {
-          await stack!.setConfig("kubecostEnabled", { 
-            value: options.kubecostEnabled.toString() 
+          await stack!.setConfig("kubecostEnabled", {
+            value: options.kubecostEnabled.toString(),
           });
-          logger.info(`Set kubecostEnabled configuration: ${options.kubecostEnabled}`);
+          logger.info(
+            `Set kubecostEnabled configuration: ${options.kubecostEnabled}`
+          );
         }
       },
       logger,
@@ -1631,4 +1646,356 @@ export async function listRollbackTargets(
     logger.warn(`Failed to retrieve rollback targets: ${error}`);
     return [];
   }
+}
+
+// =============================================================================
+// Dynamic Helm Values Generation
+// =============================================================================
+
+interface HelmChartValues {
+  companyName: string;
+  namespace?: string;
+  deploymentType: "shared" | "dedicated";
+  planTier?: string;
+
+  rafikiAuth: {
+    enabled: boolean;
+    name: string;
+    image: {
+      repository: string;
+      tag: string;
+      pullPolicy: string;
+    };
+    hpa?: {
+      enabled: boolean;
+    };
+  };
+
+  rafikiBackend: {
+    enabled: boolean;
+    name: string;
+    image: {
+      repository: string;
+      tag: string;
+      pullPolicy: string;
+    };
+    hpa?: {
+      enabled: boolean;
+    };
+  };
+
+  nginx: {
+    enabled: boolean;
+    name: string;
+    image: {
+      repository: string;
+      tag: string;
+      pullPolicy: string;
+    };
+    hpa?: {
+      enabled: boolean;
+    };
+    config?: {
+      serverNameIlp: string;
+      serverNameAuth: string;
+    };
+  };
+
+  redis: {
+    enabled: boolean;
+    name: string;
+    image: {
+      repository: string;
+      tag: string;
+      pullPolicy: string;
+    };
+  };
+
+  ingress: {
+    enabled: boolean;
+    name: string;
+    className: string;
+    hosts: {
+      ilp: {
+        host: string;
+        paths: Array<{
+          path: string;
+          pathType: string;
+          serviceNameSuffix: string;
+          servicePort: number;
+        }>;
+      };
+    };
+  };
+
+  networkPolicy?: {
+    enabled: boolean;
+    allowIngressFrom?: Array<Record<string, any>>;
+    allowEgressTo?: Array<{
+      cidr?: string;
+      ports?: Array<{
+        port: number;
+        protocol: string;
+      }>;
+    }>;
+  };
+}
+
+function generateDynamicHelmValues(
+  options: DeploymentOptions,
+  logger: Logger
+): HelmChartValues {
+  logger.info("Generating dynamic Helm chart values");
+
+  // Set defaults based on cloud provider
+  const getDefaultImageTag = (cloudProvider?: string) => {
+    return cloudProvider === "gcp" ? "v1.0.0-alpha.20" : "v1.0.0-alpha.20";
+  };
+
+  // Construct hostnames
+  const defaultDomain = options.defaultDomain || "example.com";
+  const ilpHostname = `ilp.${options.companyName}.${defaultDomain}`;
+  const authHostname = `auth-ilp.${options.companyName}.${defaultDomain}`;
+
+  const helmValues: HelmChartValues = {
+    companyName: options.companyName,
+    namespace: options.namespace,
+    deploymentType: options.deploymentType,
+    planTier: options.planTier,
+
+    rafikiAuth: {
+      enabled: options.enableRafikiAuth ?? true,
+      name: "rafiki-auth",
+      image: {
+        repository:
+          options.rafikiAuthImage?.repository ??
+          "ghcr.io/interledger/rafiki-auth",
+        tag:
+          options.rafikiAuthImage?.tag ??
+          getDefaultImageTag(options.cloudProvider),
+        pullPolicy: options.rafikiAuthImage?.pullPolicy ?? "IfNotPresent",
+      },
+    },
+
+    rafikiBackend: {
+      enabled: options.enableRafikiBackend ?? true,
+      name: "rafiki-backend",
+      image: {
+        repository:
+          options.rafikiBackendImage?.repository ??
+          "ghcr.io/interledger/rafiki-backend",
+        tag:
+          options.rafikiBackendImage?.tag ??
+          getDefaultImageTag(options.cloudProvider),
+        pullPolicy: options.rafikiBackendImage?.pullPolicy ?? "IfNotPresent",
+      },
+    },
+
+    nginx: {
+      enabled: options.enableNginx ?? true,
+      name: "nginx",
+      image: {
+        repository: options.nginxImage?.repository ?? "nginx",
+        tag: options.nginxImage?.tag ?? "latest",
+        pullPolicy: options.nginxImage?.pullPolicy ?? "IfNotPresent",
+      },
+      config: {
+        serverNameIlp: ilpHostname,
+        serverNameAuth: authHostname,
+      },
+    },
+
+    redis: {
+      enabled: options.enableRedis ?? true,
+      name: "redis",
+      image: {
+        repository: options.redisImage?.repository ?? "redis",
+        tag: options.redisImage?.tag ?? "7-alpine",
+        pullPolicy: options.redisImage?.pullPolicy ?? "IfNotPresent",
+      },
+    },
+
+    ingress: {
+      enabled: true,
+      name: "rafiki-ingress",
+      className: options.ingressClassName ?? "nginx",
+      hosts: {
+        ilp: {
+          host: ilpHostname,
+          paths: [
+            {
+              path: "/",
+              pathType: "Prefix",
+              serviceNameSuffix: "nginx",
+              servicePort: 80,
+            },
+          ],
+        },
+      },
+    },
+  };
+
+  // Configure HPA for dedicated deployments
+  if (options.deploymentType === "dedicated") {
+    const hpaEnabled = options.dedicatedDeploymentHpaEnabledByDefault ?? true;
+    if (hpaEnabled) {
+      logger.info("Enabling HPA for dedicated deployment components");
+      helmValues.rafikiAuth.hpa = { enabled: true };
+      helmValues.rafikiBackend.hpa = { enabled: true };
+      helmValues.nginx.hpa = { enabled: true };
+    }
+  }
+
+  // Configure network policies for shared deployments
+  if (options.deploymentType === "shared") {
+    const networkPolicyEnabled =
+      options.sharedDeploymentNetworkPolicyEnabled ?? true;
+    if (networkPolicyEnabled) {
+      logger.info("Configuring network policies for shared deployment");
+      helmValues.networkPolicy = {
+        enabled: true,
+        allowIngressFrom: [
+          {
+            name: options.ingressControllerNamespace ?? "ingress-nginx",
+            ...(options.ingressControllerPodSelectorLabels ?? {
+              "app.kubernetes.io/name": "ingress-nginx",
+            }),
+          },
+        ],
+        allowEgressTo: options.allowedExternalEgressRules ?? [
+          {
+            cidr: "0.0.0.0/0",
+            ports: [
+              { port: 53, protocol: "UDP" }, // DNS
+              { port: 53, protocol: "TCP" }, // DNS over TCP
+              { port: 443, protocol: "TCP" }, // HTTPS
+              { port: 5432, protocol: "TCP" }, // PostgreSQL
+              { port: 6379, protocol: "TCP" }, // Redis
+            ],
+          },
+        ],
+      };
+    } else {
+      helmValues.networkPolicy = { enabled: false };
+    }
+  } else {
+    // Disable network policies for dedicated deployments
+    helmValues.networkPolicy = { enabled: false };
+  }
+
+  logger.info("Dynamic Helm chart values generated successfully");
+  return helmValues;
+}
+
+function mergeHelmValues(
+  baseValues: HelmChartValues,
+  tierValues: any,
+  userOverrides: any,
+  logger: Logger
+): any {
+  logger.info("Merging Helm values: base + tier + user overrides");
+
+  // Start with base values
+  let mergedValues = JSON.parse(JSON.stringify(baseValues));
+
+  // Merge tier values (tier resource allocations take precedence for resource limits/requests)
+  if (tierValues && Object.keys(tierValues).length > 0) {
+    logger.info("Applying tier-based resource allocations");
+    // Deep merge tier values, preserving resource allocations
+    mergedValues = {
+      ...mergedValues,
+      ...tierValues,
+
+      // Preserve base configuration for services but merge resources
+      rafikiAuth: {
+        ...mergedValues.rafikiAuth,
+        ...tierValues.rafikiAuth,
+        image: mergedValues.rafikiAuth?.image, // Preserve image config from base
+        hpa: mergedValues.rafikiAuth?.hpa || tierValues.rafikiAuth?.hpa, // Preserve HPA config from base if set
+        resources:
+          tierValues.rafikiAuth?.resources ||
+          mergedValues.rafikiAuth?.resources, // Tier resources take precedence
+      },
+      rafikiBackend: {
+        ...mergedValues.rafikiBackend,
+        ...tierValues.rafikiBackend,
+        image: mergedValues.rafikiBackend?.image,
+        hpa: mergedValues.rafikiBackend?.hpa || tierValues.rafikiBackend?.hpa,
+        resources:
+          tierValues.rafikiBackend?.resources ||
+          mergedValues.rafikiBackend?.resources,
+      },
+      nginx: {
+        ...mergedValues.nginx,
+        ...tierValues.nginx,
+        image: mergedValues.nginx?.image,
+        config: mergedValues.nginx?.config, // Preserve hostname config
+        hpa: mergedValues.nginx?.hpa || tierValues.nginx?.hpa,
+        resources: tierValues.nginx?.resources || mergedValues.nginx?.resources,
+      },
+      redis: {
+        ...mergedValues.redis,
+        ...tierValues.redis,
+        image: mergedValues.redis?.image,
+        resources: tierValues.redis?.resources || mergedValues.redis?.resources,
+      },
+
+      // Preserve network policy and ingress from base
+      networkPolicy: mergedValues.networkPolicy,
+      ingress: mergedValues.ingress,
+
+      // Ensure tier-specific labels are preserved
+      labels: {
+        ...mergedValues.labels,
+        ...tierValues.labels,
+      },
+    };
+  }
+
+  // Apply user overrides last (user values take precedence except for core resource allocation)
+  if (userOverrides && Object.keys(userOverrides).length > 0) {
+    logger.info("Applying user override values");
+    mergedValues = {
+      ...mergedValues,
+      ...userOverrides,
+
+      // For services, merge carefully to preserve both base config and user overrides
+      rafikiAuth: {
+        ...mergedValues.rafikiAuth,
+        ...userOverrides.rafikiAuth,
+        // Preserve tier resource allocation if present
+        resources:
+          tierValues?.rafikiAuth?.resources ||
+          mergedValues.rafikiAuth?.resources ||
+          userOverrides.rafikiAuth?.resources,
+      },
+      rafikiBackend: {
+        ...mergedValues.rafikiBackend,
+        ...userOverrides.rafikiBackend,
+        resources:
+          tierValues?.rafikiBackend?.resources ||
+          mergedValues.rafikiBackend?.resources ||
+          userOverrides.rafikiBackend?.resources,
+      },
+      nginx: {
+        ...mergedValues.nginx,
+        ...userOverrides.nginx,
+        resources:
+          tierValues?.nginx?.resources ||
+          mergedValues.nginx?.resources ||
+          userOverrides.nginx?.resources,
+      },
+      redis: {
+        ...mergedValues.redis,
+        ...userOverrides.redis,
+        resources:
+          tierValues?.redis?.resources ||
+          mergedValues.redis?.resources ||
+          userOverrides.redis?.resources,
+      },
+    };
+  }
+
+  logger.info("Helm values merging completed");
+  return mergedValues;
 }

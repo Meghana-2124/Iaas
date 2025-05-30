@@ -38,7 +38,7 @@ export interface DeploymentOptions {
   action: DeploymentAction;
   stackName: string;
   secretsJson: string;
-  valuesJson?: string;
+  valuesJson?: string; // DEPRECATED: Now used only for minimal overrides after dynamic values generation
   companyName: string;
   workDir?: string;
   helmChartPath?: string;
@@ -58,6 +58,55 @@ export interface DeploymentOptions {
   planTier?: import("./plans.js").PlanTier; // Plan tier for shared deployments
   kubecostEnabled?: boolean; // Enable Kubecost cost tracking
   billingAccountId?: string; // Billing account for cost attribution
+
+  // Dynamic Helm values configuration
+  defaultDomain?: string; // Default domain for constructing hostnames (e.g., "example.com")
+
+  // Service enablement flags
+  enableRafikiAuth?: boolean; // Enable rafiki-auth service
+  enableRafikiBackend?: boolean; // Enable rafiki-backend service
+  enableNginx?: boolean; // Enable nginx service
+  enableRedis?: boolean; // Enable redis service
+
+  // Image configuration
+  rafikiAuthImage?: {
+    repository?: string;
+    tag?: string;
+    pullPolicy?: string;
+  };
+  rafikiBackendImage?: {
+    repository?: string;
+    tag?: string;
+    pullPolicy?: string;
+  };
+  nginxImage?: {
+    repository?: string;
+    tag?: string;
+    pullPolicy?: string;
+  };
+  redisImage?: {
+    repository?: string;
+    tag?: string;
+    pullPolicy?: string;
+  };
+
+  // Ingress configuration
+  ingressClassName?: string; // Ingress class name for the Ingress resource
+
+  // HPA configuration for dedicated deployments
+  dedicatedDeploymentHpaEnabledByDefault?: boolean; // Control default HPA enablement for dedicated deployments
+
+  // Network policy configuration for shared deployments
+  sharedDeploymentNetworkPolicyEnabled?: boolean; // Enable network policies for shared deployments
+  ingressControllerNamespace?: string; // Namespace of the ingress controller
+  ingressControllerPodSelectorLabels?: Record<string, string>; // Pod selector labels for ingress controller
+  allowedExternalEgressRules?: Array<{
+    cidr: string;
+    ports?: Array<{
+      port: number;
+      protocol: "TCP" | "UDP";
+    }>;
+  }>; // External egress rules for network policies
 }
 
 export interface AwsCloudConfig {
@@ -95,7 +144,7 @@ export interface FieldValidationError {
 export interface DeploymentConfig {
   stackName: string;
   secretsJson: string;
-  valuesJson?: string;
+  valuesJson?: string; // DEPRECATED: Now used only for minimal overrides after dynamic values generation
   companyName: string;
   cloudProvider?: "aws" | "gcp";
   helmChartPath?: string;
@@ -105,6 +154,45 @@ export interface DeploymentConfig {
   // Tier-based configuration
   planTier?: import("./plans.js").PlanTier;
   kubecostEnabled?: boolean;
+
+  // Dynamic Helm values configuration
+  defaultDomain?: string;
+  enableRafikiAuth?: boolean;
+  enableRafikiBackend?: boolean;
+  enableNginx?: boolean;
+  enableRedis?: boolean;
+  rafikiAuthImage?: {
+    repository?: string;
+    tag?: string;
+    pullPolicy?: string;
+  };
+  rafikiBackendImage?: {
+    repository?: string;
+    tag?: string;
+    pullPolicy?: string;
+  };
+  nginxImage?: {
+    repository?: string;
+    tag?: string;
+    pullPolicy?: string;
+  };
+  redisImage?: {
+    repository?: string;
+    tag?: string;
+    pullPolicy?: string;
+  };
+  ingressClassName?: string;
+  dedicatedDeploymentHpaEnabledByDefault?: boolean;
+  sharedDeploymentNetworkPolicyEnabled?: boolean;
+  ingressControllerNamespace?: string;
+  ingressControllerPodSelectorLabels?: Record<string, string>;
+  allowedExternalEgressRules?: Array<{
+    cidr: string;
+    ports?: Array<{
+      port: number;
+      protocol: "TCP" | "UDP";
+    }>;
+  }>;
 }
 
 // Namespace-specific configuration

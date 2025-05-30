@@ -93,14 +93,14 @@ export const DeploymentConfigSchema = z.object({
     .string()
     .optional()
     .refine((val) => {
-      if (!val) return true;
+      if (!val) return true; // Now truly optional since values are generated dynamically
       try {
         const parsed = JSON.parse(val);
         return typeof parsed === "object" && parsed !== null;
       } catch {
         return false;
       }
-    }, "Values JSON must be valid JSON object"),
+    }, "Values JSON must be valid JSON object (used only for overrides)"),
 
   companyName: z
     .string()
@@ -145,14 +145,14 @@ export const DeploymentOptionsSchema = z.object({
     .string()
     .optional()
     .refine((val) => {
-      if (!val) return true;
+      if (!val) return true; // Now truly optional since values are generated dynamically
       try {
         const parsed = JSON.parse(val);
         return typeof parsed === "object" && parsed !== null;
       } catch {
         return false;
       }
-    }, "Values JSON must be valid JSON object"),
+    }, "Values JSON must be valid JSON object (used only for overrides)"),
 
   companyName: z
     .string()
@@ -175,6 +175,70 @@ export const DeploymentOptionsSchema = z.object({
   // Namespace-based deployment support
   namespace: NamespaceSchema.optional(),
   deploymentType: DeploymentTypeSchema,
+  planTier: z.enum(["basic", "standard", "premium", "enterprise"]).optional(),
+  kubecostEnabled: z.boolean().optional(),
+  billingAccountId: z.string().optional(),
+
+  // Dynamic Helm values configuration
+  defaultDomain: z.string().optional(),
+  enableRafikiAuth: z.boolean().optional(),
+  enableRafikiBackend: z.boolean().optional(),
+  enableNginx: z.boolean().optional(),
+  enableRedis: z.boolean().optional(),
+
+  // Image configuration
+  rafikiAuthImage: z
+    .object({
+      repository: z.string().optional(),
+      tag: z.string().optional(),
+      pullPolicy: z.string().optional(),
+    })
+    .optional(),
+  rafikiBackendImage: z
+    .object({
+      repository: z.string().optional(),
+      tag: z.string().optional(),
+      pullPolicy: z.string().optional(),
+    })
+    .optional(),
+  nginxImage: z
+    .object({
+      repository: z.string().optional(),
+      tag: z.string().optional(),
+      pullPolicy: z.string().optional(),
+    })
+    .optional(),
+  redisImage: z
+    .object({
+      repository: z.string().optional(),
+      tag: z.string().optional(),
+      pullPolicy: z.string().optional(),
+    })
+    .optional(),
+
+  // Ingress configuration
+  ingressClassName: z.string().optional(),
+
+  // HPA and network policy configuration
+  dedicatedDeploymentHpaEnabledByDefault: z.boolean().optional(),
+  sharedDeploymentNetworkPolicyEnabled: z.boolean().optional(),
+  ingressControllerNamespace: z.string().optional(),
+  ingressControllerPodSelectorLabels: z.record(z.string()).optional(),
+  allowedExternalEgressRules: z
+    .array(
+      z.object({
+        cidr: z.string(),
+        ports: z
+          .array(
+            z.object({
+              port: z.number(),
+              protocol: z.enum(["TCP", "UDP"]),
+            })
+          )
+          .optional(),
+      })
+    )
+    .optional(),
 });
 
 // =============================================================================

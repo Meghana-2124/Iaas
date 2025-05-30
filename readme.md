@@ -1,6 +1,14 @@
 # IAAS (Infrastructure as a Service)
 
-A comprehensive multi-cloud Kubernetes infrastructure deployment solution supporting AWS EKS and GCP GKE with streamlined deployment automation.
+A comprehensive multi-cloud Kubernetes infrastructure deployment solution supporting AWS EK5. **Monitor and manage**:
+
+- View deployment progress with real-time updates
+- Access endpoints and DNS information from outputs
+- Use automatic rollback on failures
+
+> **🆕 New Dynamic Configuration**: The system now automatically generates comprehensive Helm values based on your deployment configuration. The `--valuesFile` option is only needed for custom overrides beyond the intelligent defaults.
+
+> For detailed documentation, examples, and API reference, see [Iaas-k8s/pulumi/README.md](./Iaas-k8s/pulumi/README.md)GCP GKE with streamlined deployment automation.
 
 ## Features
 
@@ -10,19 +18,22 @@ A comprehensive multi-cloud Kubernetes infrastructure deployment solution suppor
 - 🎯 **Type Safety**: Full TypeScript support with validation
 - 🚀 **CLI Interface**: Simple command-line deployment tools
 - ⚡ **Automated Setup**: Streamlined configuration and deployment
+- 🤖 **Dynamic Configuration**: Auto-generates Helm values based on deployment settings
+- 🏗️ **Smart Defaults**: Cloud provider-optimized configurations out of the box
 
 ## Tier-Based Resource Allocation
 
 The system now includes comprehensive tier-based resource allocation for shared cluster deployments:
 
-| Tier       | Price/month | CPU   | Memory | Storage | Features |
-|------------|-------------|-------|--------|---------|----------|
-| Basic      | $99         | 1.2   | 2.5Gi  | 15Gi    | Development |
-| Standard   | $299        | 2.4   | 5Gi    | 30Gi    | Network Policies |
-| Premium    | $599        | 4.8   | 10Gi   | 60Gi    | High Performance |
-| Enterprise | $1299       | 9.6   | 20Gi   | 120Gi   | Full Scale |
+| Tier       | Price/month | CPU | Memory | Storage | Features         |
+| ---------- | ----------- | --- | ------ | ------- | ---------------- |
+| Basic      | $99         | 1.2 | 2.5Gi  | 15Gi    | Development      |
+| Standard   | $299        | 2.4 | 5Gi    | 30Gi    | Network Policies |
+| Premium    | $599        | 4.8 | 10Gi   | 60Gi    | High Performance |
+| Enterprise | $1299       | 9.6 | 20Gi   | 120Gi   | Full Scale       |
 
 **Tier Management Commands**:
+
 ```bash
 # List available tiers
 npm run tier:list --companyName "test" --stackName "test"
@@ -48,13 +59,16 @@ npm run tier:calculate premium --companyName "test" --stackName "test"
 
 3. **Prepare configuration files**:
 
-   - `config/secrets.json` (sensitive values)
-   - `config/values.json` (non-sensitive configuration)
+   - `config/secrets.json` (sensitive values like database passwords, API keys)
    - `config/aws.json` or `config/gcp.json` (cloud provider config)
+
+   **Optional** (only needed for custom configurations):
+
+   - `config/values-overrides.json` (override auto-generated defaults)
 
 4. **Deploy using the CLI**:
 
-   **Standard Deployment**:
+   **Modern Deployment (Auto-Generated Configuration)**:
 
    ```bash
    npm run deploy:cli up client-stack \
@@ -62,20 +76,19 @@ npm run tier:calculate premium --companyName "test" --stackName "test"
      --cloudProvider="aws" \
      --cloudConfigFile="./config/aws.json" \
      --secretsFile="./config/secrets.json" \
-     --valuesFile="./config/values.json" \
      --autoSetupConfig
    ```
 
-   **Alternative with inline config**:
+   **With Custom Overrides** (only when needed):
 
    ```bash
    npm run deploy:cli up client-stack \
-     --companyName="client-company" \
-     --cloudProvider="gcp" \
-     --region="us-central1" \
-     --zone="us-central1-a" \
+     --companyName="client-a" \
+     --cloudProvider="aws" \
+     --cloudConfigFile="./config/aws.json" \
      --secretsFile="./config/secrets.json" \
-     --valuesFile="./config/values.json"
+     --valuesFile="./config/custom-overrides.json" \
+     --autoSetupConfig
    ```
 
 5. **Monitor and manage**:
@@ -94,7 +107,6 @@ npm run tier:calculate premium --companyName "test" --stackName "test"
      --cloudProvider="aws" \
      --cloudConfigFile="./config/aws.json" \
      --secretsFile="./config/secrets.json" \
-     --valuesFile="./config/values.json" \
      --autoSetupConfig
    ```
 
@@ -110,7 +122,6 @@ npm run tier:calculate premium --companyName "test" --stackName "test"
      --cloudProvider="gcp" \
      --cloudConfigFile="./config/gcp.json" \
      --secretsFile="./config/secrets.json" \
-     --valuesFile="./config/values.json" \
      --autoSetupConfig
    ```
 
@@ -123,7 +134,6 @@ npm run tier:calculate premium --companyName "test" --stackName "test"
      --cloudProvider="gcp" \
      --cloudConfigFile="./config/gcp.json" \
      --secretsFile="./config/secrets.json" \
-     --valuesFile="./config/values.json" \
      --autoSetupConfig
    ```
 
@@ -173,19 +183,32 @@ Iaas/
    ```
 
 4. **Deploy infrastructure with automated config setup**:
+
    ```bash
    npm run dev -- up dev \
      --companyName mycompany \
      --secretsFile ./config/secrets.json \
-     --valuesFile ./config/values.json \
      --cloudProvider gcp \
      --cloudConfigFile ./config/gcp.json \
      --autoSetupConfig
    ```
 
-## Features
+   **With custom overrides** (optional):
+
+   ```bash
+   npm run dev -- up dev \
+     --companyName mycompany \
+     --secretsFile ./config/secrets.json \
+     --valuesFile ./config/custom-overrides.json \
+     --cloudProvider gcp \
+     --cloudConfigFile ./config/gcp.json \
+     --autoSetupConfig
+   ```
+
+## Key Features
 
 - ✅ **Multi-cloud support** (AWS EKS, GCP GKE)
+- ✅ **Dynamic Configuration Generation** - No manual Helm values required
 - ✅ **Type-safe TypeScript codebase**
 - ✅ **Modular, well-organized architecture**
 - ✅ **Comprehensive error handling**
@@ -194,6 +217,8 @@ Iaas/
 - ✅ **Automatic rollback capabilities**
 - ✅ **Fully automated Pulumi config setup via CLI and JSON files**
 - ✅ **Streamlined deployment process**
+- ✅ **Tier-based resource allocation for shared deployments**
+- ✅ **Smart defaults with cloud provider optimization**
 
 For detailed usage instructions, see [Iaas-k8s/README.md](./Iaas-k8s/README.md).
 
