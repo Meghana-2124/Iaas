@@ -9,31 +9,36 @@ The Kubecost-Prometheus integration has been **successfully implemented** and is
 ### ✅ Completed Components
 
 1. **Custom Prometheus Deployment**
+
    - StatefulSet with persistent storage
    - Comprehensive scrape configuration
    - Service discovery for Kubernetes resources
    - Recording and alerting rules
 
 2. **Kubecost Integration**
+
    - Full Kubecost deployment with cost analyzer
    - RBAC configuration for cluster access
    - Service configuration for UI access
    - Integration with custom Prometheus
 
 3. **Node Exporter Setup**
+
    - DaemonSet deployment for node metrics
    - Proper security context and host access
    - Metrics collection configuration
 
 4. **Monitoring Infrastructure**
+
    - ServiceMonitor CRDs for Prometheus Operator compatibility
    - PrometheusRule custom resources
    - Comprehensive alerting rules for budget monitoring
    - Tier-based cost allocation and alerts
 
 5. **Chart Validation**
+
    - Helm chart syntax validation ✅
-   - Template rendering validation ✅ 
+   - Template rendering validation ✅
    - Multi-tier deployment testing ✅
    - Resource generation verification ✅
 
@@ -46,6 +51,7 @@ The Kubecost-Prometheus integration has been **successfully implemented** and is
 ## 🏗️ Generated Kubernetes Resources
 
 The chart successfully generates:
+
 - **1 Namespace** (kubecost)
 - **1 StatefulSet** (Prometheus server)
 - **1 Deployment** (Kubecost cost analyzer)
@@ -84,23 +90,27 @@ kubectl get all -n kubecost
 ## 🎯 Key Features Implemented
 
 ### Cost Monitoring
+
 - **Real-time cost tracking** across namespaces, pods, and services
 - **Resource allocation insights** with CPU, memory, and storage costs
 - **Budget alerts** with tier-based thresholds (basic: $500, standard: $2000, premium: $5000, enterprise: $20000)
 
 ### Metrics Collection
+
 - **Comprehensive Prometheus setup** with 30-second scrape intervals
 - **Node-level metrics** via Node Exporter DaemonSet
 - **Kubernetes API metrics** for cluster resource monitoring
 - **Custom recording rules** for cost allocation calculations
 
 ### Alerting System
+
 - **Budget threshold alerts** at 80% and 100% of monthly limits
 - **Resource efficiency alerts** for underutilized resources
 - **Cost anomaly detection** for unexpected spending spikes
 - **Tier-specific alert configurations**
 
 ### Enterprise Features
+
 - **Multi-tier support** with different resource limits and alerting thresholds
 - **Prometheus Operator compatibility** via ServiceMonitor CRDs
 - **Persistent storage** for long-term metrics retention (15 days default)
@@ -109,18 +119,21 @@ kubectl get all -n kubecost
 ## 📝 Configuration Highlights
 
 ### Prometheus Configuration
+
 - **Retention**: 15 days, 10GB size limit
 - **Storage**: 20Gi PersistentVolume
 - **Resources**: 2 CPU cores, 4Gi memory limits
 - **HA Ready**: Supports cluster deployment scenarios
 
 ### Kubecost Configuration
+
 - **Version**: prod-1.108.1 (latest stable)
 - **Cluster ID**: Configurable per deployment
 - **Cost Allocation**: Namespace and pod-level granularity
 - **UI Access**: ClusterIP service (can be exposed via ingress)
 
 ### Security Configuration
+
 - **RBAC**: Full cluster-role based access control
 - **Service Accounts**: Dedicated accounts for each component
 - **Network Policies**: Optional isolation controls
@@ -139,6 +152,7 @@ This is a script-level parsing issue, not a chart issue. The deployment will wor
 ## 📚 Documentation
 
 Comprehensive documentation is available:
+
 - **Main README**: `/helm-chart/README.md`
 - **Deployment Guide**: `/docs/kubecost-deployment-guide.md`
 - **Prometheus Configuration**: `/docs/kubecost-prometheus-configuration.md`

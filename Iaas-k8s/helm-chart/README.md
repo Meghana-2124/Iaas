@@ -63,14 +63,14 @@ kubectl port-forward svc/prometheus-server 9091:9090 -n kubecost
 # Global settings
 global:
   companyName: "mycompany"
-  planTier: "basic"  # basic, standard, premium, enterprise
+  planTier: "basic" # basic, standard, premium, enterprise
 
 # Kubecost configuration
 kubecost:
   enabled: true
   version: "prod-1.108.1"
   clusterId: "shared-cluster"
-  
+
   # Prometheus settings
   prometheus:
     enabled: true
@@ -78,14 +78,14 @@ kubecost:
     persistence:
       enabled: true
       size: "20Gi"
-    
+
   # Budget configuration by tier
   budgets:
     basic:
-      monthly: 100      # USD
+      monthly: 100 # USD
       alertThresholds:
-        warning: 80     # %
-        critical: 95    # %
+        warning: 80 # %
+        critical: 95 # %
     standard:
       monthly: 500
     # ... more tiers
@@ -100,7 +100,7 @@ Create environment-specific values files:
 cp values.yaml values-dev.yaml
 # Edit values-dev.yaml for dev settings
 
-# Production environment  
+# Production environment
 cp values.yaml values-prod.yaml
 # Edit values-prod.yaml for prod settings
 ```
@@ -157,21 +157,25 @@ monitoring:
 ## 🎯 Deployment Tiers
 
 ### Basic Tier
+
 - Monthly budget: $100
 - Resource limits: 2 CPU, 4Gi memory
 - Basic cost tracking
 
-### Standard Tier  
+### Standard Tier
+
 - Monthly budget: $500
 - Resource limits: 8 CPU, 16Gi memory
 - Enhanced reporting
 
 ### Premium Tier
+
 - Monthly budget: $2,000
 - Resource limits: 32 CPU, 64Gi memory
 - Advanced analytics
 
 ### Enterprise Tier
+
 - Monthly budget: $10,000
 - Resource limits: 128 CPU, 256Gi memory
 - Full feature set
@@ -245,7 +249,7 @@ kubecost:
     retention: "30d"
     persistence:
       size: "50Gi"
-  
+
   budgets:
     premium:
       monthly: 5000
@@ -265,9 +269,9 @@ Add additional scrape configs to Prometheus:
 kubecost:
   prometheus:
     additionalScrapeConfigs:
-      - job_name: 'my-app'
+      - job_name: "my-app"
         static_configs:
-          - targets: ['my-app-service:8080']
+          - targets: ["my-app-service:8080"]
 ```
 
 ### Custom Budget Alerts
@@ -280,8 +284,8 @@ kubecost:
     standard:
       monthly: 1000
       alertThresholds:
-        warning: 70   # Alert at 70% instead of 80%
-        critical: 90  # Alert at 90% instead of 95%
+        warning: 70 # Alert at 70% instead of 80%
+        critical: 90 # Alert at 90% instead of 95%
 ```
 
 ### Resource Quotas
@@ -333,18 +337,21 @@ curl -G http://localhost:9090/model/allocation \
 ## 📊 Key Metrics
 
 ### Cost Metrics
+
 - `kubecost_allocation_cpu_cost`: CPU cost by allocation
-- `kubecost_allocation_memory_cost`: Memory cost by allocation  
+- `kubecost_allocation_memory_cost`: Memory cost by allocation
 - `kubecost_allocation_storage_cost`: Storage cost by allocation
 - `kubecost_cluster_cost_total`: Total cluster cost
 
 ### Efficiency Metrics
+
 - `kubecost_cpu_efficiency`: CPU utilization efficiency
 - `kubecost_memory_efficiency`: Memory utilization efficiency
 - `kubecost_cost_per_cpu_hour`: Cost per CPU hour
 - `kubecost_cost_per_memory_gb_hour`: Cost per GB memory hour
 
 ### Budget Metrics
+
 - `kubecost_budget_monthly_{tier}`: Monthly budget by tier
 - `kubecost_spend_monthly_{tier}`: Monthly spend by tier
 - `kubecost_budget_utilization_{tier}`: Budget utilization percentage
@@ -354,6 +361,7 @@ curl -G http://localhost:9090/model/allocation \
 ### Common Issues
 
 #### Prometheus Not Starting
+
 ```bash
 # Check logs
 kubectl logs statefulset/prometheus-server -n kubecost
@@ -366,6 +374,7 @@ kubectl get configmap prometheus-config -n kubecost -o yaml
 ```
 
 #### Kubecost Not Connecting to Prometheus
+
 ```bash
 # Check service endpoints
 kubectl get endpoints prometheus-server -n kubecost
@@ -378,6 +387,7 @@ kubectl get deployment kubecost-cost-analyzer -n kubecost -o yaml | grep PROMETH
 ```
 
 #### Node Exporter Not Running
+
 ```bash
 # Check DaemonSet status
 kubectl get daemonset node-exporter -n kubecost
@@ -407,12 +417,15 @@ kubectl get events -n kubecost --sort-by='.lastTimestamp'
 ## 🔒 Security Considerations
 
 ### RBAC Permissions
+
 The chart creates minimal required permissions:
+
 - Prometheus: Read access to cluster metrics
 - Kubecost: Read access for cost calculation
 - Node Exporter: Host-level metrics access
 
 ### Network Policies
+
 Enable network policies for enhanced security:
 
 ```yaml
@@ -423,6 +436,7 @@ security:
 ```
 
 ### Pod Security Standards
+
 Configure pod security standards:
 
 ```yaml
@@ -458,7 +472,7 @@ Optimize for large clusters:
 ```yaml
 kubecost:
   prometheus:
-    retention: "7d"  # Reduce retention for large clusters
+    retention: "7d" # Reduce retention for large clusters
     resources:
       limits:
         cpu: "4000m"
