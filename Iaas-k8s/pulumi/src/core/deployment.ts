@@ -1698,6 +1698,7 @@ interface HelmChartValues {
     config?: {
       serverNameIlp: string;
       serverNameAuth: string;
+      serverNameConnector: string;
     };
   };
 
@@ -1716,7 +1717,7 @@ interface HelmChartValues {
     name: string;
     className: string;
     hosts: {
-      ilp: {
+      [key: string]: {
         host: string;
         paths: Array<{
           path: string;
@@ -1747,15 +1748,16 @@ function generateDynamicHelmValues(
 ): HelmChartValues {
   logger.info("Generating dynamic Helm chart values");
 
-  // Set defaults based on cloud provider
-  const getDefaultImageTag = (cloudProvider?: string) => {
-    return cloudProvider === "gcp" ? "v1.0.0-alpha.20" : "v1.0.0-alpha.20";
-  };
-
   // Construct hostnames
   const defaultDomain = options.defaultDomain || "example.com";
-  const ilpHostname = `ilp.${options.companyName}.${defaultDomain}`;
-  const authHostname = `auth-ilp.${options.companyName}.${defaultDomain}`;
+  const openPaymentsHostname =
+    options.openPaymentsDomain || `ilp.${defaultDomain}`;
+  const authHostname = options.authDomain || `auth-ilp.${defaultDomain}`;
+  const connectorHostname =
+    options.connectorDomain || `ilp-connector.${defaultDomain}`;
+  const getHostPrefix = (hostDomain: string, defaultDomain: string) => {
+    return hostDomain.replace(defaultDomain, "");
+  };
 
   const helmValues: HelmChartValues = {
     companyName: options.companyName,
@@ -1770,9 +1772,7 @@ function generateDynamicHelmValues(
         repository:
           options.rafikiAuthImage?.repository ??
           "ghcr.io/interledger/rafiki-auth",
-        tag:
-          options.rafikiAuthImage?.tag ??
-          getDefaultImageTag(options.cloudProvider),
+        tag: options.rafikiAuthImage?.tag ?? "v1.0.0-alpha.20",
         pullPolicy: options.rafikiAuthImage?.pullPolicy ?? "IfNotPresent",
       },
     },
@@ -1784,9 +1784,7 @@ function generateDynamicHelmValues(
         repository:
           options.rafikiBackendImage?.repository ??
           "ghcr.io/interledger/rafiki-backend",
-        tag:
-          options.rafikiBackendImage?.tag ??
-          getDefaultImageTag(options.cloudProvider),
+        tag: options.rafikiBackendImage?.tag ?? "v1.0.0-alpha.20",
         pullPolicy: options.rafikiBackendImage?.pullPolicy ?? "IfNotPresent",
       },
     },
@@ -1800,8 +1798,9 @@ function generateDynamicHelmValues(
         pullPolicy: options.nginxImage?.pullPolicy ?? "IfNotPresent",
       },
       config: {
-        serverNameIlp: ilpHostname,
+        serverNameIlp: openPaymentsHostname,
         serverNameAuth: authHostname,
+        serverNameConnector: connectorHostname,
       },
     },
 
@@ -1820,8 +1819,30 @@ function generateDynamicHelmValues(
       name: "rafiki-ingress",
       className: options.ingressClassName ?? "nginx",
       hosts: {
-        ilp: {
-          host: ilpHostname,
+        [getHostPrefix(openPaymentsHostname, defaultDomain)]: {
+          host: openPaymentsHostname,
+          paths: [
+            {
+              path: "/",
+              pathType: "Prefix",
+              serviceNameSuffix: "nginx",
+              servicePort: 80,
+            },
+          ],
+        },
+        [getHostPrefix(authHostname, defaultDomain)]: {
+          host: authHostname,
+          paths: [
+            {
+              path: "/",
+              pathType: "Prefix",
+              serviceNameSuffix: "nginx",
+              servicePort: 80,
+            },
+          ],
+        },
+        [getHostPrefix(connectorHostname, defaultDomain)]: {
+          host: connectorHostname,
           paths: [
             {
               path: "/",

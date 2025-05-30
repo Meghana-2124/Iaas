@@ -61,6 +61,9 @@ export interface DeploymentOptions {
 
   // Dynamic Helm values configuration
   defaultDomain?: string; // Default domain for constructing hostnames (e.g., "example.com")
+  authDomain?: string; // Domain for authentication service (e.g., "auth.example.com")
+  openPaymentsDomain?: string; // Domain for open payments service (e.g., "example.com")
+  connectorDomain?: string; // Domain for connector service (e.g., "connector.example.com")
 
   // Service enablement flags
   enableRafikiAuth?: boolean; // Enable rafiki-auth service
