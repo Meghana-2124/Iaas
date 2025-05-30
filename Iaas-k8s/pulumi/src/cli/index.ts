@@ -5,6 +5,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { addTierCommands } from "./tier-commands.js";
 import { Logger } from "../types/index.js";
+import { PlanTier } from "../types/plans.js";
 
 // Simple console logger for CLI
 const consoleLogger: Logger = {
@@ -120,6 +121,16 @@ async function main() {
             choices: ["shared", "dedicated"],
             default: "dedicated",
           })
+          .option("planTier", {
+            describe: "Plan tier for shared deployments (basic, standard, premium, enterprise)",
+            type: "string",
+            choices: ["basic", "standard", "premium", "enterprise"],
+          })
+          .option("kubecostEnabled", {
+            describe: "Enable Kubecost cost tracking and monitoring",
+            type: "boolean",
+            default: false,
+          })
           .help(),
       async (args: any) => {
         // Add logger to args for tier commands
@@ -185,6 +196,8 @@ async function main() {
           timeout: args.timeout,
           namespace: args.namespace,
           deploymentType: args.deploymentType as "shared" | "dedicated",
+          planTier: args.planTier as any,
+          kubecostEnabled: args.kubecostEnabled,
         };
         try {
           await handleDeployment(options);

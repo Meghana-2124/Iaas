@@ -11,6 +11,26 @@ A comprehensive multi-cloud Kubernetes infrastructure deployment solution suppor
 - 🚀 **CLI Interface**: Simple command-line deployment tools
 - ⚡ **Automated Setup**: Streamlined configuration and deployment
 
+## Tier-Based Resource Allocation
+
+The system now includes comprehensive tier-based resource allocation for shared cluster deployments:
+
+| Tier       | Price/month | CPU   | Memory | Storage | Features |
+|------------|-------------|-------|--------|---------|----------|
+| Basic      | $99         | 1.2   | 2.5Gi  | 15Gi    | Development |
+| Standard   | $299        | 2.4   | 5Gi    | 30Gi    | Network Policies |
+| Premium    | $599        | 4.8   | 10Gi   | 60Gi    | High Performance |
+| Enterprise | $1299       | 9.6   | 20Gi   | 120Gi   | Full Scale |
+
+**Tier Management Commands**:
+```bash
+# List available tiers
+npm run tier:list --companyName "test" --stackName "test"
+
+# Calculate resources for a tier
+npm run tier:calculate premium --companyName "test" --stackName "test"
+```
+
 ## Quick Start
 
 1. **Install prerequisites**:
@@ -73,6 +93,22 @@ A comprehensive multi-cloud Kubernetes infrastructure deployment solution suppor
      --namespace="client-a-prod" \
      --cloudProvider="aws" \
      --cloudConfigFile="./config/aws.json" \
+     --secretsFile="./config/secrets.json" \
+     --valuesFile="./config/values.json" \
+     --autoSetupConfig
+   ```
+
+   **Tier-Based Shared Deployment**:
+
+   ```bash
+   npm run deploy:cli up client-enterprise-stack \
+     --companyName="enterprise-client" \
+     --deploymentType="shared" \
+     --planTier="premium" \
+     --kubecostEnabled=true \
+     --namespace="enterprise-prod" \
+     --cloudProvider="gcp" \
+     --cloudConfigFile="./config/gcp.json" \
      --secretsFile="./config/secrets.json" \
      --valuesFile="./config/values.json" \
      --autoSetupConfig

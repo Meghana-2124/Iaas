@@ -9,6 +9,7 @@ import {
 } from "../utils/validation.js";
 import { DeploymentMonitor } from "../utils/monitoring.js";
 import { PulumiConfigManager } from "../utils/config-manager.js";
+import { TierCalculator } from "../utils/tier-calculator.js";
 import type {
   LogLevel,
   DeploymentAction,
@@ -20,6 +21,7 @@ import type {
   FieldValidationError,
   DeploymentConfig,
 } from "../types/index.js";
+import type { PlanTier } from "../types/plans.js";
 
 // =============================================================================
 // Error Classes
@@ -698,6 +700,44 @@ export async function handleDeployment(
     }
 
     // =============================================================================
+    // Tier-Based Resource Allocation Validation
+    // =============================================================================
+    let tierAllocationResult: any;
+    if (options.planTier && deploymentType === "shared") {
+      logger.info(`Processing tier-based deployment for ${options.planTier} tier`);
+      
+      const tierCalculator = new TierCalculator(logger);
+      const effectiveNamespace = namespace || options.namespace!;
+      
+      // Calculate tier allocation
+      tierAllocationResult = tierCalculator.calculateTierAllocation(
+        options.planTier,
+        companyName,
+        effectiveNamespace,
+        {
+          kubecostEnabled: options.kubecostEnabled || false,
+        }
+      );
+
+      if (!tierAllocationResult.success) {
+        const errorMessage = `Tier allocation failed: ${tierAllocationResult.errors.join(", ")}`;
+        logger.error(errorMessage);
+        throw new ConfigValidationError(errorMessage, []);
+      }
+
+      if (tierAllocationResult.warnings.length > 0) {
+        tierAllocationResult.warnings.forEach((warning: string) => {
+          logger.warn(`Tier warning: ${warning}`);
+        });
+      }
+
+      logger.info(`Tier allocation calculated successfully for ${options.planTier} tier`);
+      logger.debug(`Estimated monthly cost: $${tierAllocationResult.estimatedCosts.monthly}`);
+    } else if (options.planTier && deploymentType === "dedicated") {
+      logger.warn("Plan tier specified for dedicated deployment - tier-based resource allocation is only supported for shared deployments");
+    }
+
+    // =============================================================================
     // Health Checks
     // =============================================================================
     reportProgress("initializing", "Performing pre-deployment health checks");
@@ -881,9 +921,35 @@ export async function handleDeployment(
           "Set helmSecretsJson configuration with processed secrets for stringData (as secret)"
         );
 
-        // Set Helm values JSON if provided
-        if (valuesJson) {
-          await stack!.setConfig("helmValuesJson", { value: valuesJson });
+        // Set Helm values JSON with tier-based integration
+        let finalValuesJson = valuesJson;
+        if (tierAllocationResult && tierAllocationResult.success) {
+          // Merge tier-based Helm values with provided values
+          const baseValues = valuesJson ? JSON.parse(valuesJson) : {};
+          const tierValues = tierAllocationResult.helmValues;
+          
+          // Deep merge tier values with user-provided values (user values take precedence)
+          const mergedValues = {
+            ...tierValues,
+            ...baseValues,
+            // Ensure tier-specific labels are preserved
+            labels: {
+              ...tierValues.labels,
+              ...baseValues.labels,
+            },
+            // Merge resource quotas and limits
+            resources: {
+              ...tierValues.resources,
+              ...baseValues.resources,
+            },
+          };
+          
+          finalValuesJson = JSON.stringify(mergedValues);
+          logger.info(`Merged tier-based values for ${options.planTier} tier with user-provided values`);
+        }
+        
+        if (finalValuesJson) {
+          await stack!.setConfig("helmValuesJson", { value: finalValuesJson });
           logger.info("Set helmValuesJson configuration");
         }
 
@@ -930,6 +996,19 @@ export async function handleDeployment(
 
         await stack!.setConfig("deploymentType", { value: deploymentType });
         logger.info(`Set deploymentType configuration: ${deploymentType}`);
+
+        // Set tier-based configuration if applicable
+        if (options.planTier) {
+          await stack!.setConfig("planTier", { value: options.planTier });
+          logger.info(`Set planTier configuration: ${options.planTier}`);
+        }
+
+        if (options.kubecostEnabled) {
+          await stack!.setConfig("kubecostEnabled", { 
+            value: options.kubecostEnabled.toString() 
+          });
+          logger.info(`Set kubecostEnabled configuration: ${options.kubecostEnabled}`);
+        }
       },
       logger,
       "configuration setup"
