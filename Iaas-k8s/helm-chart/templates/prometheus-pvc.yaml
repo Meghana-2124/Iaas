@@ -1,0 +1,23 @@
+# Prometheus PersistentVolumeClaim for data persistence
+# This template creates PVCs for Prometheus data
+
+{{- if and .Values.kubecost.enabled .Values.kubecost.prometheus.enabled .Values.kubecost.prometheus.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-data
+  namespace: kubecost
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: kubecost-prometheus
+    app.kubernetes.io/component: prometheus-storage
+    iaas.deployment/component: monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.kubecost.prometheus.persistence.storageClass | default "standard" }}
+  resources:
+    requests:
+      storage: {{ .Values.kubecost.prometheus.persistence.size | default "50Gi" }}
+{{- end }}

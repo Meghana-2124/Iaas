@@ -1,34 +1,494 @@
-# Helm Chart for {{ .Values.companyName }} Rafiki Application Suite
+# Kubecost-Prometheus Integration Helm Chart
 
-This README provides instructions for understanding and using the Helm chart for the {{ .Values.companyName }} Rafiki application suite. This chart is primarily designed to be deployed via the **TypeScript deployment package** in the parent directory (`../pulumi/`), which automates multi-cloud Kubernetes deployments using Pulumi. The chart can also be used manually with Helm CLI.
+This Helm chart provides a complete integration of Kubecost with custom Prometheus for Kubernetes cost monitoring and optimization. It includes tier-based resource allocation, budget alerting, and comprehensive cost tracking across different deployment environments.
 
-## Prerequisites (for Manual Helm CLI Usage)
+## 🚀 Features
 
-- `kubectl` installed and configured.
-- Helm 3 installed.
-- Access to Docker images specified in `values.yaml`.
+- **Custom Prometheus Integration**: Full Prometheus deployment optimized for cost monitoring
+- **Kubecost Cost Analytics**: Complete cost allocation and monitoring solution
+- **Tier-Based Budgeting**: Support for basic, standard, premium, and enterprise tiers
+- **Resource Optimization**: Recording rules for cost efficiency metrics
+- **Budget Alerting**: Automated alerts for budget thresholds
+- **Node-Level Metrics**: Node Exporter for accurate resource utilization
+- **Multi-Cloud Support**: Works with AWS, GCP, Azure, and on-premises clusters
 
-## Chart Structure
+## 📋 Prerequisites
+
+- Kubernetes cluster (1.24+)
+- Helm 3.8+
+- kubectl configured to access your cluster
+- 4GB+ free memory for Prometheus and Kubecost
+- StorageClass for persistent volume claims (optional but recommended)
+
+## 🛠️ Quick Start
+
+### 1. Clone and Deploy
+
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd helm-chart
+
+# Deploy with default configuration
+./scripts/deploy.sh
+
+# Or deploy with custom values
+./scripts/deploy.sh -f custom-values.yaml
+```
+
+### 2. Access the UIs
+
+```bash
+# Access Kubecost UI
+kubectl port-forward svc/kubecost-cost-analyzer 9090:9090 -n kubecost
+# Open http://localhost:9090
+
+# Access Prometheus UI
+kubectl port-forward svc/prometheus-server 9091:9090 -n kubecost
+# Open http://localhost:9091
+```
+
+### 3. Validate Deployment
+
+```bash
+# Run deployment tests
+./scripts/test-deployment.sh
+```
+
+## ⚙️ Configuration
+
+### Core Configuration (`values.yaml`)
+
+```yaml
+# Global settings
+global:
+  companyName: "mycompany"
+  planTier: "basic"  # basic, standard, premium, enterprise
+
+# Kubecost configuration
+kubecost:
+  enabled: true
+  version: "prod-1.108.1"
+  clusterId: "shared-cluster"
+  
+  # Prometheus settings
+  prometheus:
+    enabled: true
+    retention: "15d"
+    persistence:
+      enabled: true
+      size: "20Gi"
+    
+  # Budget configuration by tier
+  budgets:
+    basic:
+      monthly: 100      # USD
+      alertThresholds:
+        warning: 80     # %
+        critical: 95    # %
+    standard:
+      monthly: 500
+    # ... more tiers
+```
+
+### Environment-Specific Values
+
+Create environment-specific values files:
+
+```bash
+# Development environment
+cp values.yaml values-dev.yaml
+# Edit values-dev.yaml for dev settings
+
+# Production environment  
+cp values.yaml values-prod.yaml
+# Edit values-prod.yaml for prod settings
+```
+
+## 📊 Monitoring & Alerting
+
+### Built-in Metrics
+
+The chart includes comprehensive recording rules for:
+
+- **Cost Allocation**: Costs by namespace, tier, and company
+- **Resource Efficiency**: CPU/Memory utilization rates
+- **Budget Tracking**: Spend vs. budget by tier
+- **Cost Trends**: Daily, weekly, monthly cost projections
+
+### Alert Rules
+
+Pre-configured alerts for:
+
+- Budget threshold warnings (80% of monthly budget)
+- Budget threshold critical (95% of monthly budget)
+- High resource waste (>50% idle resources)
+- Kubecost service health
+
+### Custom Dashboards
+
+Access Grafana dashboards (if enabled):
+
+```yaml
+monitoring:
+  grafana:
+    enabled: true
+    adminPassword: "your-secure-password"
+```
+
+## 🏗️ Architecture
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Kubecost      │    │   Prometheus    │    │  Node Exporter  │
+│  Cost Analyzer  │◄───┤     Server      │◄───┤   (DaemonSet)   │
+│                 │    │                 │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                        │                        │
+         ▼                        ▼                        ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Kubernetes Cluster                          │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐              │
+│  │    Pods     │ │  Services   │ │   Nodes     │              │
+│  └─────────────┘ └─────────────┘ └─────────────┘              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## 🎯 Deployment Tiers
+
+### Basic Tier
+- Monthly budget: $100
+- Resource limits: 2 CPU, 4Gi memory
+- Basic cost tracking
+
+### Standard Tier  
+- Monthly budget: $500
+- Resource limits: 8 CPU, 16Gi memory
+- Enhanced reporting
+
+### Premium Tier
+- Monthly budget: $2,000
+- Resource limits: 32 CPU, 64Gi memory
+- Advanced analytics
+
+### Enterprise Tier
+- Monthly budget: $10,000
+- Resource limits: 128 CPU, 256Gi memory
+- Full feature set
+
+## 📁 Chart Structure
 
 ```
 helm-chart/
-├── Chart.yaml          # Dynamically uses {{ .Values.companyName }}-rafiki as name
-├── README.md           # This file
-├── values.yaml         # Default configuration values (must include companyName)
-├── values.dev.yaml     # Development environment overrides
-├── values.prod.yaml    # Production environment overrides
-├── templates/          # Kubernetes manifest templates
-│   └── ...
-└── crds/               # Optional: Custom Resource Definitions
+├── Chart.yaml                           # Chart metadata
+├── values.yaml                          # Default configuration values
+├── README.md                            # This documentation
+├── scripts/
+│   ├── deploy.sh                        # Deployment script
+│   └── test-deployment.sh               # Validation script
+└── templates/
+    ├── kubecost-installation.yaml       # Kubecost deployment
+    ├── prometheus-deployment.yaml       # Prometheus StatefulSet
+    ├── prometheus-config.yaml           # Prometheus configuration
+    ├── prometheus-recording-rules.yaml  # Cost metrics recording rules
+    ├── prometheus-alerting-rules.yaml   # Budget and cost alerts
+    ├── prometheus-servicemonitors.yaml  # ServiceMonitor CRDs
+    ├── prometheus-rules-cr.yaml         # PrometheusRule CRDs
+    ├── prometheus-pvc.yaml              # Persistent volume claims
+    ├── prometheus-crds.yaml             # Custom Resource Definitions
+    ├── node-exporter.yaml               # Node Exporter DaemonSet
+    └── _prometheus-helpers.tpl           # Helper templates
 ```
 
-## Configuration
+## 🚀 Deployment Options
 
-Key configuration files:
+### Option 1: Quick Deploy (Recommended)
 
-- `values.yaml`: Default values. **It is expected that `companyName` is defined here or overridden.**
-- `values.dev.yaml`: Overrides for development.
-- `values.prod.yaml`: Overrides for production.
+```bash
+# Deploy with defaults
+./scripts/deploy.sh
+
+# Deploy with custom namespace
+./scripts/deploy.sh -n monitoring
+
+# Upgrade existing deployment
+./scripts/deploy.sh --upgrade
+
+# Dry run to validate
+./scripts/deploy.sh --dry-run
+```
+
+### Option 2: Manual Helm
+
+```bash
+# Install
+helm install kubecost-monitoring . -n kubecost --create-namespace
+
+# Upgrade
+helm upgrade kubecost-monitoring . -n kubecost
+
+# Uninstall
+helm uninstall kubecost-monitoring -n kubecost
+```
+
+### Option 3: Custom Values
+
+```bash
+# Create custom values
+cat > my-values.yaml << EOF
+global:
+  companyName: "acme-corp"
+  planTier: "premium"
+
+kubecost:
+  prometheus:
+    retention: "30d"
+    persistence:
+      size: "50Gi"
+  
+  budgets:
+    premium:
+      monthly: 5000
+EOF
+
+# Deploy with custom values
+./scripts/deploy.sh -f my-values.yaml
+```
+
+## 🔧 Customization
+
+### Adding Custom Metrics
+
+Add additional scrape configs to Prometheus:
+
+```yaml
+kubecost:
+  prometheus:
+    additionalScrapeConfigs:
+      - job_name: 'my-app'
+        static_configs:
+          - targets: ['my-app-service:8080']
+```
+
+### Custom Budget Alerts
+
+Modify alert thresholds per tier:
+
+```yaml
+kubecost:
+  budgets:
+    standard:
+      monthly: 1000
+      alertThresholds:
+        warning: 70   # Alert at 70% instead of 80%
+        critical: 90  # Alert at 90% instead of 95%
+```
+
+### Resource Quotas
+
+Adjust resource limits by tier:
+
+```yaml
+resourceQuotas:
+  premium:
+    requests:
+      cpu: "64"
+      memory: "128Gi"
+    limits:
+      cpu: "128"
+      memory: "256Gi"
+```
+
+## 🧪 Testing & Validation
+
+### Automated Testing
+
+```bash
+# Run full test suite
+./scripts/test-deployment.sh
+
+# Check specific components
+kubectl get pods -n kubecost
+kubectl get svc -n kubecost
+kubectl get configmap -n kubecost
+```
+
+### Manual Validation
+
+```bash
+# Check Prometheus targets
+kubectl port-forward svc/prometheus-server 9090:9090 -n kubecost
+# Visit http://localhost:9090/targets
+
+# Check Kubecost metrics
+kubectl port-forward svc/kubecost-cost-analyzer 9090:9090 -n kubecost
+# Visit http://localhost:9090
+
+# View cost allocation
+curl -G http://localhost:9090/model/allocation \
+  -d window=1d \
+  -d aggregate=namespace
+```
+
+## 📊 Key Metrics
+
+### Cost Metrics
+- `kubecost_allocation_cpu_cost`: CPU cost by allocation
+- `kubecost_allocation_memory_cost`: Memory cost by allocation  
+- `kubecost_allocation_storage_cost`: Storage cost by allocation
+- `kubecost_cluster_cost_total`: Total cluster cost
+
+### Efficiency Metrics
+- `kubecost_cpu_efficiency`: CPU utilization efficiency
+- `kubecost_memory_efficiency`: Memory utilization efficiency
+- `kubecost_cost_per_cpu_hour`: Cost per CPU hour
+- `kubecost_cost_per_memory_gb_hour`: Cost per GB memory hour
+
+### Budget Metrics
+- `kubecost_budget_monthly_{tier}`: Monthly budget by tier
+- `kubecost_spend_monthly_{tier}`: Monthly spend by tier
+- `kubecost_budget_utilization_{tier}`: Budget utilization percentage
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+#### Prometheus Not Starting
+```bash
+# Check logs
+kubectl logs statefulset/prometheus-server -n kubecost
+
+# Check storage
+kubectl get pvc -n kubecost
+
+# Check configuration
+kubectl get configmap prometheus-config -n kubecost -o yaml
+```
+
+#### Kubecost Not Connecting to Prometheus
+```bash
+# Check service endpoints
+kubectl get endpoints prometheus-server -n kubecost
+
+# Check Kubecost logs
+kubectl logs deployment/kubecost-cost-analyzer -n kubecost
+
+# Verify Prometheus URL
+kubectl get deployment kubecost-cost-analyzer -n kubecost -o yaml | grep PROMETHEUS_SERVER_ENDPOINT
+```
+
+#### Node Exporter Not Running
+```bash
+# Check DaemonSet status
+kubectl get daemonset node-exporter -n kubecost
+
+# Check node constraints
+kubectl describe daemonset node-exporter -n kubecost
+
+# Check node labels
+kubectl get nodes --show-labels
+```
+
+### Debug Commands
+
+```bash
+# Port forward to debug services
+kubectl port-forward svc/prometheus-server 9090:9090 -n kubecost &
+kubectl port-forward svc/kubecost-cost-analyzer 9091:9090 -n kubecost &
+
+# Check resource usage
+kubectl top pods -n kubecost
+kubectl top nodes
+
+# Check events
+kubectl get events -n kubecost --sort-by='.lastTimestamp'
+```
+
+## 🔒 Security Considerations
+
+### RBAC Permissions
+The chart creates minimal required permissions:
+- Prometheus: Read access to cluster metrics
+- Kubecost: Read access for cost calculation
+- Node Exporter: Host-level metrics access
+
+### Network Policies
+Enable network policies for enhanced security:
+
+```yaml
+security:
+  networkPolicies:
+    enabled: true
+    defaultDeny: true
+```
+
+### Pod Security Standards
+Configure pod security standards:
+
+```yaml
+security:
+  podSecurityStandards:
+    enforce: "restricted"
+    audit: "restricted"
+    warn: "restricted"
+```
+
+## 📈 Scaling & Performance
+
+### High Availability
+
+Enable HA mode for production:
+
+```yaml
+ha:
+  enabled: true
+  replicas: 3
+
+kubecost:
+  prometheus:
+    persistence:
+      enabled: true
+      size: "100Gi"
+```
+
+### Resource Optimization
+
+Optimize for large clusters:
+
+```yaml
+kubecost:
+  prometheus:
+    retention: "7d"  # Reduce retention for large clusters
+    resources:
+      limits:
+        cpu: "4000m"
+        memory: "8Gi"
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+- Documentation: Check this README and inline code comments
+- Issues: Create GitHub issues for bugs and feature requests
+- Community: Join our Slack/Discord for discussions
+
+## 🔗 Useful Links
+
+- [Kubecost Documentation](https://docs.kubecost.com/)
+- [Prometheus Documentation](https://prometheus.io/docs/)
+- [Helm Documentation](https://helm.sh/docs/)
+- [Kubernetes Cost Optimization Guide](https://kubernetes.io/docs/concepts/cluster-administration/cost-optimization/)
 
 When deployed via the Pulumi project, values and secrets are merged from multiple sources (base `values.yaml`, environment-specific `values.<env>.yaml`, and cloud-specific `chart-config` files) by the `automation.ts` script and passed as JSON strings to Pulumi, which then supplies them to this Helm chart.
 

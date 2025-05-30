@@ -1,0 +1,236 @@
+# Node Exporter DaemonSet for Node-Level Metrics Collection
+# Required for Kubecost to collect accurate node cost and utilization metrics
+
+{{- if and .Values.kubecost.enabled .Values.kubecost.prometheus.enabled .Values.kubecost.nodeExporter.enabled }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: node-exporter
+  namespace: kubecost
+  labels:
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/instance: kubecost-node-exporter
+    app.kubernetes.io/component: metrics
+    iaas.deployment/component: monitoring
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: node-exporter
+  labels:
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/instance: kubecost-node-exporter
+    app.kubernetes.io/component: metrics
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/metrics", "nodes/stats", "nodes/proxy"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: node-exporter
+  labels:
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/instance: kubecost-node-exporter
+    app.kubernetes.io/component: metrics
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: node-exporter
+subjects:
+  - kind: ServiceAccount
+    name: node-exporter
+    namespace: kubecost
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter
+  namespace: kubecost
+  labels:
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/instance: kubecost-node-exporter
+    app.kubernetes.io/component: metrics
+    iaas.deployment/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: node-exporter
+      app.kubernetes.io/instance: kubecost-node-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: node-exporter
+        app.kubernetes.io/instance: kubecost-node-exporter
+        app.kubernetes.io/component: metrics
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: node-exporter
+      hostNetwork: true
+      hostPID: true
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+        - operator: Exists
+          effect: NoExecute
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+      containers:
+        - name: node-exporter
+          image: {{ .Values.kubecost.nodeExporter.image.repository | default "prom/node-exporter" }}:{{ .Values.kubecost.nodeExporter.image.tag | default "v1.7.0" }}
+          imagePullPolicy: {{ .Values.kubecost.nodeExporter.image.pullPolicy | default "IfNotPresent" }}
+          args:
+            - --path.procfs=/host/proc
+            - --path.sysfs=/host/sys
+            - --path.rootfs=/host/root
+            - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+            - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$$
+            - --collector.netclass.ignored-devices=^(veth.*|cali.*|docker.*|br-.*|lo)$$
+            - --collector.netdev.device-exclude=^(veth.*|cali.*|docker.*|br-.*)$$
+            - --collector.diskstats.ignored-devices=^(ram|loop|fd|(h|s|v)d[a-z]|nvme\\d+n\\d+p)\\d+$$
+            - --collector.textfile.directory=/host/textfile
+            - --web.listen-address=0.0.0.0:9100
+            - --web.telemetry-path=/metrics
+          ports:
+            - name: metrics
+              containerPort: 9100
+              protocol: TCP
+              hostPort: 9100
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 30
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 10
+            timeoutSeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: {{ .Values.kubecost.nodeExporter.resources.limits.cpu | default "200m" }}
+              memory: {{ .Values.kubecost.nodeExporter.resources.limits.memory | default "128Mi" }}
+            requests:
+              cpu: {{ .Values.kubecost.nodeExporter.resources.requests.cpu | default "100m" }}
+              memory: {{ .Values.kubecost.nodeExporter.resources.requests.memory | default "64Mi" }}
+          volumeMounts:
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: sys
+              mountPath: /host/sys
+              readOnly: true
+            - name: root
+              mountPath: /host/root
+              mountPropagation: HostToContainer
+              readOnly: true
+            - name: textfile
+              mountPath: /host/textfile
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: root
+          hostPath:
+            path: /
+        - name: textfile
+          hostPath:
+            path: /var/lib/node_exporter/textfile_collector
+            type: DirectoryOrCreate
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-exporter
+  namespace: kubecost
+  labels:
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/instance: kubecost-node-exporter
+    app.kubernetes.io/component: metrics
+    iaas.deployment/component: monitoring
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9100"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: 9100
+      targetPort: 9100
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/instance: kubecost-node-exporter
+
+---
+{{- if .Values.kubecost.prometheus.serviceMonitor.enabled }}
+---
+# ServiceMonitor for Prometheus Operator (if available)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: node-exporter
+  namespace: kubecost
+  labels:
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/instance: kubecost-node-exporter
+    app.kubernetes.io/component: metrics
+    iaas.deployment/component: monitoring
+    {{- if .Values.kubecost.prometheus.serviceMonitor.additionalLabels }}
+    {{- toYaml .Values.kubecost.prometheus.serviceMonitor.additionalLabels | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: node-exporter
+      app.kubernetes.io/instance: kubecost-node-exporter
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.kubecost.prometheus.scrapeInterval | default "30s" }}
+      scrapeTimeout: {{ .Values.kubecost.prometheus.scrapeTimeout | default "10s" }}
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_endpoint_node_name]
+          targetLabel: node
+        - sourceLabels: [__meta_kubernetes_endpoint_address_target_kind]
+          targetLabel: target_kind
+        - sourceLabels: [__meta_kubernetes_endpoint_address_target_name]
+          targetLabel: target_name
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: '(node_cpu_seconds_total|node_memory_MemAvailable_bytes|node_memory_MemTotal_bytes|node_filesystem_avail_bytes|node_filesystem_size_bytes|node_network_receive_bytes_total|node_network_transmit_bytes_total|node_load1|node_load5|node_load15)'
+          action: keep
+{{- end }}
+
+{{- end }}

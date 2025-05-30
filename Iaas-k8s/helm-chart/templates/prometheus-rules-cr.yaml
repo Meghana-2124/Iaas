@@ -1,0 +1,102 @@
+# Prometheus Rules CustomResource for Prometheus Operator
+# This template creates PrometheusRule CRs for Prometheus Operator compatibility
+
+{{- if and .Values.kubecost.enabled .Values.kubecost.prometheus.enabled .Values.kubecost.prometheus.operator.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kubecost-recording-rules
+  namespace: kubecost
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: kubecost-prometheus
+    app.kubernetes.io/component: prometheus-rules
+    iaas.deployment/component: monitoring
+    prometheus: kubecost
+    role: alert-rules
+spec:
+  groups:
+  - name: kubecost.cost_allocation
+    interval: 30s
+    rules:
+    - record: kubecost_allocation_cpu
+      expr: sum(kube_pod_container_resource_requests{resource="cpu"}) by (namespace, pod, node)
+    - record: kubecost_allocation_memory
+      expr: sum(kube_pod_container_resource_requests{resource="memory"}) by (namespace, pod, node)
+    - record: kubecost_allocation_pv
+      expr: sum(kube_persistentvolumeclaim_info * on (persistentvolumeclaim) group_left(storageclass) kube_persistentvolumeclaim_resource_requests_storage_bytes) by (persistentvolumeclaim, namespace, storageclass)
+    - record: kubecost_cluster_info
+      expr: sum(kube_node_info)
+    - record: kubecost_pod_resource_utilization
+      expr: sum(rate(container_cpu_usage_seconds_total{container!="", container!="POD"}[5m])) by (namespace, pod, container, node) / sum(kube_pod_container_resource_requests{resource="cpu"}) by (namespace, pod, container, node)
+      
+  - name: kubecost.resource_efficiency
+    interval: 1m
+    rules:
+    - record: kubecost_efficiency_cpu
+      expr: sum(rate(container_cpu_usage_seconds_total{container!="", container!="POD"}[5m])) by (namespace, pod) / sum(kube_pod_container_resource_requests{resource="cpu"}) by (namespace, pod) * 100
+    - record: kubecost_efficiency_memory
+      expr: sum(container_memory_working_set_bytes{container!="", container!="POD"}) by (namespace, pod) / sum(kube_pod_container_resource_requests{resource="memory"}) by (namespace, pod) * 100
+    - record: kubecost_node_utilization_cpu
+      expr: sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance) / count(node_cpu_seconds_total{mode="idle"}) by (instance) * 100
+    - record: kubecost_node_utilization_memory
+      expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100
+
+  - name: kubecost.cost_optimization
+    interval: 1m
+    rules:
+    - record: kubecost_unused_resource_cpu
+      expr: sum(kube_pod_container_resource_requests{resource="cpu"}) by (namespace) - sum(rate(container_cpu_usage_seconds_total{container!="", container!="POD"}[5m])) by (namespace)
+    - record: kubecost_unused_resource_memory
+      expr: sum(kube_pod_container_resource_requests{resource="memory"}) by (namespace) - sum(container_memory_working_set_bytes{container!="", container!="POD"}) by (namespace)
+    - record: kubecost_potential_savings
+      expr: sum(kubecost_unused_resource_cpu) * on() group_left() kubecost_node_cpu_hourly_cost + sum(kubecost_unused_resource_memory) * on() group_left() (kubecost_node_ram_hourly_cost / 1024 / 1024 / 1024)
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kubecost-alerting-rules
+  namespace: kubecost
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: kubecost-prometheus
+    app.kubernetes.io/component: prometheus-alerts
+    iaas.deployment/component: monitoring
+    prometheus: kubecost
+    role: alert-rules
+spec:
+  groups:
+  - name: kubecost.budget_alerts
+    rules:
+    - alert: TierBudgetExceeded
+      expr: kubecost_allocation_cost{label_iaas_deployment_tier="{{ .Values.planTier | default "basic" }}"} > {{ .Values.kubecost.alerts.budgetThreshold | default "100" }}
+      for: 6h
+      labels:
+        severity: warning
+        tier: {{ .Values.planTier | default "basic" }}
+      annotations:
+        summary: "Tier {{ .Values.planTier | default "basic" }} has exceeded its budget"
+        description: "The {{ .Values.planTier | default "basic" }} tier has exceeded its budget of ${{ .Values.kubecost.alerts.budgetThreshold | default "100" }}"
+  
+  - name: kubecost.efficiency_alerts
+    rules:
+    - alert: LowResourceUtilization
+      expr: kubecost_efficiency_cpu < 30 and kubecost_efficiency_memory < 30
+      for: 24h
+      labels:
+        severity: info
+      annotations:
+        summary: "Low resource utilization in namespace {{ "{{" }} $labels.namespace {{ "}}" }}"
+        description: "Pod {{ "{{" }} $labels.pod {{ "}}" }} in namespace {{ "{{" }} $labels.namespace {{ "}}" }} has been using less than 30% of requested resources for 24 hours"
+    
+    - alert: HighResourceUtilization
+      expr: kubecost_efficiency_cpu > 90 or kubecost_efficiency_memory > 90
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: "High resource utilization in namespace {{ "{{" }} $labels.namespace {{ "}}" }}"
+        description: "Pod {{ "{{" }} $labels.pod {{ "}}" }} in namespace {{ "{{" }} $labels.namespace {{ "}}" }} has been using more than 90% of requested resources for 1 hour"
+{{- end }}

@@ -1,0 +1,261 @@
+# Prometheus Alerting Rules for Kubecost Cost and Efficiency Monitoring
+# These rules trigger alerts for budget overruns and resource inefficiencies
+
+{{- if and .Values.kubecost.enabled .Values.kubecost.prometheus.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alerting-rules
+  namespace: kubecost
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: kubecost-prometheus
+    app.kubernetes.io/component: alerting-rules
+    iaas.deployment/component: monitoring
+data:
+  alerting-rules.yml: |
+    groups:
+      - name: kubecost.budget_alerts
+        interval: 5m
+        rules:
+          # Monthly budget exceeded for namespace
+          - alert: NamespaceBudgetExceeded
+            expr: |
+              kubecost:namespace_monthly_cost_projection > 
+              on(namespace) group_left() 
+              label_replace(
+                {{ .Values.kubecost.budgets.namespaceLimit | default "1000" }}, 
+                "namespace", "$1", "__name__", "(.*)"
+              )
+            for: 5m
+            labels:
+              severity: critical
+              category: cost
+              component: kubecost
+              tier: "{{ "{{" }} $labels.tier {{ "}}" }}"
+            annotations:
+              summary: "Namespace {{ "{{" }} $labels.namespace {{ "}}" }} budget exceeded"
+              description: |
+                Namespace {{ "{{" }} $labels.namespace {{ "}}" }} is projected to exceed its monthly budget.
+                Current projection: ${{ "{{" }} $value | humanize {{ "}}" }}
+                Budget limit: ${{ .Values.kubecost.budgets.namespaceLimit | default "1000" }}
+              
+          # Daily spend spike detection
+          - alert: DailySpendSpike
+            expr: |
+              (
+                kubecost:namespace_daily_cost / 
+                avg_over_time(kubecost:namespace_daily_cost[7d])
+              ) > {{ .Values.kubecost.alerts.spikeThreshold | default "2.0" }}
+            for: 10m
+            labels:
+              severity: warning
+              category: cost
+              component: kubecost
+            annotations:
+              summary: "Daily spending spike detected for namespace {{ "{{" }} $labels.namespace {{ "}}" }}"
+              description: |
+                Namespace {{ "{{" }} $labels.namespace {{ "}}" }} daily spend is {{ "{{" }} $value | humanizePercentage {{ "}}" }}
+                higher than the 7-day average.
+                Current daily cost: ${{ "{{" }} with "kubecost:namespace_daily_cost" . | query | first | value | humanize {{ "}}" }}
+
+          # Cluster monthly budget warning
+          - alert: ClusterBudgetWarning
+            expr: |
+              sum(kubecost:namespace_monthly_cost_projection) > 
+              {{ .Values.kubecost.budgets.clusterLimit | default "10000" }} * 0.8
+            for: 15m
+            labels:
+              severity: warning
+              category: cost
+              component: kubecost
+            annotations:
+              summary: "Cluster approaching monthly budget limit"
+              description: |
+                Total cluster cost projection: ${{ "{{" }} $value | humanize {{ "}}" }}
+                Budget limit: ${{ .Values.kubecost.budgets.clusterLimit | default "10000" }}
+                Threshold: 80%
+
+      - name: kubecost.efficiency_alerts
+        interval: 5m
+        rules:
+          # Low CPU efficiency
+          - alert: LowCPUEfficiency
+            expr: |
+              kubecost:pod_cpu_efficiency < {{ .Values.kubecost.efficiency.cpuThreshold | default "0.2" }}
+            for: 15m
+            labels:
+              severity: warning
+              category: efficiency
+              component: kubecost
+            annotations:
+              summary: "Low CPU efficiency detected for pod {{ "{{" }} $labels.pod {{ "}}" }}"
+              description: |
+                Pod {{ "{{" }} $labels.pod {{ "}}" }} in namespace {{ "{{" }} $labels.namespace {{ "}}" }} 
+                has CPU efficiency of {{ "{{" }} $value | humanizePercentage {{ "}}" }}.
+                Consider reducing CPU requests or increasing workload.
+
+          # Low memory efficiency
+          - alert: LowMemoryEfficiency
+            expr: |
+              kubecost:pod_memory_efficiency < {{ .Values.kubecost.efficiency.memoryThreshold | default "0.3" }}
+            for: 15m
+            labels:
+              severity: warning
+              category: efficiency
+              component: kubecost
+            annotations:
+              summary: "Low memory efficiency detected for pod {{ "{{" }} $labels.pod {{ "}}" }}"
+              description: |
+                Pod {{ "{{" }} $labels.pod {{ "}}" }} in namespace {{ "{{" }} $labels.namespace {{ "}}" }} 
+                has memory efficiency of {{ "{{" }} $value | humanizePercentage {{ "}}" }}.
+                Consider reducing memory requests or increasing workload.
+
+          # High idle cost
+          - alert: HighIdleCost
+            expr: |
+              (
+                kubecost:idle_cpu_cost_hourly + kubecost:idle_memory_cost_hourly
+              ) > {{ .Values.kubecost.alerts.idleCostThreshold | default "50" }}
+            for: 30m
+            labels:
+              severity: warning
+              category: waste
+              component: kubecost
+            annotations:
+              summary: "High idle resource cost in namespace {{ "{{" }} $labels.namespace {{ "}}" }}"
+              description: |
+                Namespace {{ "{{" }} $labels.namespace {{ "}}" }} has high idle resource cost: ${{ "{{" }} $value | humanize {{ "}}" }}/hour.
+                This represents allocated but unused resources.
+
+      - name: kubecost.infrastructure_alerts
+        interval: 1m
+        rules:
+          # High cluster CPU utilization
+          - alert: HighClusterCPUUtilization
+            expr: |
+              kubecost:cluster_cpu_utilization_percent > {{ .Values.kubecost.alerts.cpuUtilizationThreshold | default "85" }}
+            for: 10m
+            labels:
+              severity: warning
+              category: capacity
+              component: kubecost
+            annotations:
+              summary: "High cluster CPU utilization"
+              description: |
+                Cluster CPU utilization is {{ "{{" }} $value | humanizePercentage {{ "}}" }}.
+                Consider scaling up the cluster or optimizing workloads.
+
+          # High cluster memory utilization
+          - alert: HighClusterMemoryUtilization
+            expr: |
+              kubecost:cluster_memory_utilization_percent > {{ .Values.kubecost.alerts.memoryUtilizationThreshold | default "90" }}
+            for: 10m
+            labels:
+              severity: critical
+              category: capacity
+              component: kubecost
+            annotations:
+              summary: "High cluster memory utilization"
+              description: |
+                Cluster memory utilization is {{ "{{" }} $value | humanizePercentage {{ "}}" }}.
+                Immediate action needed: scale up or reduce workloads.
+
+          # Node unavailability
+          - alert: NodeUnavailable
+            expr: |
+              kubecost:node_availability_percent < {{ .Values.kubecost.alerts.nodeAvailabilityThreshold | default "90" }}
+            for: 5m
+            labels:
+              severity: critical
+              category: availability
+              component: kubecost
+            annotations:
+              summary: "Node availability below threshold"
+              description: |
+                Node availability is {{ "{{" }} $value | humanizePercentage {{ "}}" }}.
+                Some nodes may be down or unreachable.
+
+      - name: kubecost.tier_specific_alerts
+        interval: 10m
+        rules:
+          # Basic tier resource limits
+          - alert: BasicTierResourcesExceeded
+            expr: |
+              (
+                sum(kubecost:namespace_daily_cost) by (tier) > {{ .Values.kubecost.limits.basic.dailyCost | default "100" }}
+              ) and on() (
+                label_match(tier, "basic")
+              )
+            for: 5m
+            labels:
+              severity: critical
+              category: tier-limit
+              component: kubecost
+              tier: basic
+            annotations:
+              summary: "Basic tier daily cost limit exceeded"
+              description: |
+                Basic tier daily cost: ${{ "{{" }} $value | humanize {{ "}}" }}
+                Limit: ${{ .Values.kubecost.limits.basic.dailyCost | default "100" }}
+
+          # Premium tier resource warning
+          - alert: PremiumTierResourcesWarning
+            expr: |
+              (
+                sum(kubecost:namespace_daily_cost) by (tier) > 
+                {{ .Values.kubecost.limits.premium.dailyCost | default "80" }} * 0.8
+              ) and on() (
+                label_match(tier, "premium")
+              )
+            for: 15m
+            labels:
+              severity: warning
+              category: tier-limit
+              component: kubecost
+              tier: premium
+            annotations:
+              summary: "Premium tier approaching daily cost limit"
+              description: |
+                Premium tier daily cost: ${{ "{{" }} $value | humanize {{ "}}" }}
+                Limit: ${{ .Values.kubecost.limits.premium.dailyCost | default "80" }}
+
+      - name: kubecost.data_quality
+        interval: 5m
+        rules:
+          # Missing cost data
+          - alert: MissingCostData
+            expr: |
+              absent(kubecost:namespace_daily_cost) or 
+              absent(kubecost:cpu_cost_per_core_hour) or 
+              absent(kubecost:memory_cost_per_gb_hour)
+            for: 10m
+            labels:
+              severity: warning
+              category: data-quality
+              component: kubecost
+            annotations:
+              summary: "Missing cost allocation data"
+              description: |
+                Essential cost metrics are missing. This may indicate:
+                - Kubecost service is down
+                - Prometheus scraping issues
+                - Missing node pricing data
+
+          # Stale metrics
+          - alert: StaleCostMetrics
+            expr: |
+              time() - timestamp(kubecost:namespace_daily_cost) > 1800
+            for: 5m
+            labels:
+              severity: warning
+              category: data-quality
+              component: kubecost
+            annotations:
+              summary: "Cost metrics are stale"
+              description: |
+                Cost metrics haven't been updated for over 30 minutes.
+                Last update: {{ "{{" }} $value | humanizeTimestamp {{ "}}" }}
+
+{{- end }}

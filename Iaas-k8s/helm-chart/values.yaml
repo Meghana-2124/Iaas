@@ -1,0 +1,424 @@
+# Default values for iaas-k8s Helm chart
+# This configuration provides Kubecost integration with custom Prometheus
+# for cost monitoring and optimization in Kubernetes environments
+
+# Global configuration
+global:
+  # Name of the company/organization
+  companyName: "mycompany"
+  
+  # Default deployment tier (basic, standard, premium, enterprise)
+  planTier: "basic"
+
+# Namespace configuration
+namespace: "kubecost"
+companyName: "mycompany"
+deploymentType: "dedicated"
+namespaceAnnotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  name: "kubecost-ingress"
+  className: "nginx"
+  annotations: {}
+  tls: []
+  hosts: []
+
+# GCP-specific configuration
+gcp:
+  backendConfig:
+    enabled: false
+    name: "backend-config"
+    healthCheck:
+      checkIntervalSec: 30
+
+# Kubecost configuration
+kubecost:
+  # Enable Kubecost installation
+  enabled: true
+  
+  # Kubecost version
+  version: "prod-1.108.1"
+  
+  # Cluster identification
+  clusterId: "shared-cluster"
+  
+  # Kubecost token for enterprise features
+  token: ""
+  
+  # Log level (debug, info, warn, error)
+  logLevel: "info"
+  
+  # Prometheus URL (defaults to custom Prometheus in kubecost namespace)
+  prometheusUrl: "http://prometheus-server.kubecost.svc.cluster.local"
+  
+  # Service configuration
+  service:
+    type: "ClusterIP"
+    port: 9090
+    targetPort: 9090
+    annotations: {}
+  
+  # RBAC configuration
+  rbac:
+    enabled: true
+    serviceAccountName: "kubecost-cost-analyzer"
+  
+  # Prometheus configuration
+  prometheus:
+    # Enable custom Prometheus deployment
+    enabled: true
+    
+    # Prometheus image configuration
+    image:
+      repository: "prom/prometheus"
+      tag: "v2.47.0"
+      pullPolicy: "IfNotPresent"
+    
+    # Data retention configuration
+    retention: "15d"
+    retentionSize: "10GB"
+    
+    # Storage configuration
+    persistence:
+      enabled: true
+      storageClass: ""
+      size: "20Gi"
+      accessMode: "ReadWriteOnce"
+    
+    # Resource limits and requests
+    resources:
+      limits:
+        cpu: "2000m"
+        memory: "4Gi"
+      requests:
+        cpu: "500m"
+        memory: "2Gi"
+    
+    # Scrape configuration
+    scrapeInterval: "30s"
+    scrapeTimeout: "10s"
+    evaluationInterval: "30s"
+    
+    # External labels
+    externalLabels:
+      cluster: "shared-cluster"
+      environment: "production"
+    
+    # Service configuration
+    service:
+      type: "ClusterIP"
+      port: 9090
+      
+    # ServiceMonitor configuration for Prometheus Operator
+    serviceMonitor:
+      enabled: true
+      additionalLabels: {}
+      interval: "30s"
+      scrapeTimeout: "10s"
+    
+    # Prometheus Operator integration
+    operator:
+      enabled: false
+    
+    # CRD creation
+    createCRDs: false
+    
+    # Alertmanager integration
+    alertmanager:
+      enabled: false
+      url: ""
+    
+    # Additional scrape configs
+    additionalScrapeConfigs: []
+    
+    # Remote write configuration
+    remoteWrite:
+      enabled: false
+      configs: []
+    
+    # TSDB configuration
+    tsdb:
+      minBlockDuration: "2h"
+      maxBlockDuration: "25h"
+      walCompression: true
+    
+    # Security context
+    securityContext:
+      runAsUser: 65534
+      runAsGroup: 65534
+      fsGroup: 65534
+      runAsNonRoot: true
+  
+  # Node Exporter configuration
+  nodeExporter:
+    # Enable Node Exporter
+    enabled: true
+    
+    # Node Exporter image
+    image:
+      repository: "prom/node-exporter"
+      tag: "v1.7.0"
+      pullPolicy: "IfNotPresent"
+    
+    # Resource limits and requests
+    resources:
+      limits:
+        cpu: "200m"
+        memory: "128Mi"
+      requests:
+        cpu: "100m"
+        memory: "64Mi"
+    
+    # Security context
+    securityContext:
+      runAsUser: 65534
+      runAsGroup: 65534
+      runAsNonRoot: true
+  
+  # Cost allocation configuration
+  allocation:
+    # Enable tier-based allocation
+    tierBased: true
+    
+    # Enable company-based allocation
+    companyBased: true
+    
+    # Share idle costs
+    shareIdle: true
+    
+    # Namespaces to share costs
+    shareNamespaces:
+      - "kube-system"
+      - "kubecost"
+  
+  # Resource efficiency thresholds
+  efficiency:
+    # CPU efficiency threshold (0.0-1.0)
+    cpuThreshold: 0.5
+    
+    # Memory efficiency threshold (0.0-1.0)
+    memoryThreshold: 0.7
+  
+  # Alert configuration
+  alerts:
+    # Cost spike detection threshold (percentage increase)
+    spikeThreshold: 50
+    
+    # Budget alert webhook URL
+    webhookUrl: ""
+    
+    # Slack configuration
+    slack:
+      enabled: false
+      channel: "#alerts"
+      webhook: ""
+  
+  # Budget configuration by tier
+  budgets:
+    basic:
+      # Monthly budget limit in USD
+      monthly: 100
+      # Alert thresholds (percentage of budget)
+      alertThresholds:
+        warning: 80
+        critical: 95
+    
+    standard:
+      monthly: 500
+      alertThresholds:
+        warning: 80
+        critical: 95
+    
+    premium:
+      monthly: 2000
+      alertThresholds:
+        warning: 80
+        critical: 95
+    
+    enterprise:
+      monthly: 10000
+      alertThresholds:
+        warning: 80
+        critical: 95
+  
+  # Cost limits by tier (for daily alerting)
+  limits:
+    basic:
+      dailyCost: 5      # $5/day
+      hourlyCost: 0.25  # $0.25/hour
+    
+    standard:
+      dailyCost: 20     # $20/day
+      hourlyCost: 1     # $1/hour
+    
+    premium:
+      dailyCost: 80     # $80/day
+      hourlyCost: 4     # $4/hour
+    
+    enterprise:
+      dailyCost: 400    # $400/day
+      hourlyCost: 20    # $20/hour
+  
+  # Pricing configuration by tier (cost per hour in USD)
+  pricing:
+    basic:
+      cpu: "0.031611"     # Cost per CPU hour
+      memory: "0.004446"  # Cost per GB memory hour  
+      storage: "0.04"     # Cost per GB storage hour
+    
+    standard:
+      cpu: "0.031611"
+      memory: "0.004446"
+      storage: "0.04"
+    
+    premium:
+      cpu: "0.031611"
+      memory: "0.004446"
+      storage: "0.04"
+    
+    enterprise:
+      cpu: "0.031611"
+      memory: "0.004446"
+      storage: "0.04"
+  
+  # Billing configuration
+  billing:
+    # Enable billing integration
+    enabled: false
+    
+    # Cloud provider (aws, gcp, azure)
+    provider: ""
+    
+    # Billing API configuration
+    api:
+      key: ""
+      secret: ""
+      region: ""
+  
+  # Network policy configuration
+  networkPolicy:
+    enabled: false
+  
+  # Ingress configuration
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts: []
+    tls: []
+
+# Additional monitoring components
+monitoring:
+  # Enable additional monitoring stack
+  enabled: false
+  
+  # Grafana configuration
+  grafana:
+    enabled: false
+    adminPassword: "admin"
+  
+  # AlertManager configuration  
+  alertmanager:
+    enabled: false
+  
+  # Dashboards configuration
+  dashboards:
+    enabled: false
+    grafana:
+      enabled: false
+
+# Security configuration
+security:
+  # Pod Security Standards
+  podSecurityStandards:
+    enforce: "restricted"
+    audit: "restricted"
+    warn: "restricted"
+  
+  # Network policies
+  networkPolicies:
+    enabled: false
+    defaultDeny: false
+
+# High availability configuration
+ha:
+  # Enable high availability mode
+  enabled: false
+  
+  # Number of replicas for HA components
+  replicas: 3
+
+# Resource quotas by tier
+resourceQuotas:
+  basic:
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+    persistentvolumeclaims: "10"
+  
+  standard:
+    requests:
+      cpu: "8"
+      memory: "16Gi"
+    limits:
+      cpu: "16"
+      memory: "32Gi"
+    persistentvolumeclaims: "50"
+  
+  premium:
+    requests:
+      cpu: "32"
+      memory: "64Gi"
+    limits:
+      cpu: "64"
+      memory: "128Gi"
+    persistentvolumeclaims: "200"
+  
+  enterprise:
+    requests:
+      cpu: "128"
+      memory: "256Gi"
+    limits:
+      cpu: "256"
+      memory: "512Gi"
+    persistentvolumeclaims: "1000"
+
+# Default node selectors and tolerations
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Pod disruption budgets
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Legacy application components (disabled for monitoring-only deployment)
+redis:
+  enabled: false
+  
+rafikiAuth:
+  enabled: false
+  hpa:
+    enabled: false
+  
+rafikiBackend:
+  enabled: false
+  hpa:
+    enabled: false
+  
+nginx:
+  enabled: false
+  hpa:
+    enabled: false
+
+# Default namespace (can be overridden)
+namespace: default
+
+# Company name for legacy templates
+companyName: "mycompany"

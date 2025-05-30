@@ -136,7 +136,7 @@ spec:
             memory: 2Gi
         env:
         - name: PROMETHEUS_SERVER_ENDPOINT
-          value: {{ .Values.kubecost.prometheusUrl | default "http://prometheus-server.prometheus.svc.cluster.local" }}
+          value: {{ .Values.kubecost.prometheusUrl | default "http://prometheus-server.kubecost.svc.cluster.local" }}
         - name: CLOUD_PROVIDER_API_KEY
           value: "AIzaSyDXQPG_MHUEy9neR7stolq6l0ujXmjJlvk"
         - name: CLUSTER_ID
@@ -183,7 +183,7 @@ spec:
             memory: 256Mi
         env:
         - name: PROMETHEUS_SERVER_ENDPOINT
-          value: {{ .Values.kubecost.prometheusUrl | default "http://prometheus-server.prometheus.svc.cluster.local" }}
+          value: {{ .Values.kubecost.prometheusUrl | default "http://prometheus-server.kubecost.svc.cluster.local" }}
         - name: CLUSTER_ID
           value: {{ .Values.kubecost.clusterId | default "shared-cluster" }}
         - name: KUBECOST_NAMESPACE
