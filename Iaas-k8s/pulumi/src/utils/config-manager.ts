@@ -13,7 +13,6 @@ export interface PulumiConfigSetup {
   companyName: string;
   cloudConfig: CloudConfig;
   secretsJson: string;
-  valuesJson?: string;
   helmChartPath?: string;
 }
 
@@ -219,11 +218,6 @@ export class PulumiConfigManager {
       secret: true,
     });
     this.logger.debug("✓ Set Helm secrets configuration for stringData usage");
-
-    if (options.valuesJson) {
-      await stack.setConfig("helmValuesJson", { value: options.valuesJson });
-      this.logger.debug("✓ Set Helm values configuration");
-    }
 
     if (options.helmChartPath) {
       await stack.setConfig("helmChartPath", { value: options.helmChartPath });

@@ -151,7 +151,6 @@ const options: DeploymentOptions = {
   action: "up",
   stackName: "my-company-dev",
   secretsJson: JSON.stringify(require("./config/secrets.json")),
-  valuesJson: JSON.stringify(require("./config/values.json")),
   companyName: "my-company",
   workDir: "/path/to/pulumi/project",
   cloudProvider: "aws",
@@ -220,7 +219,7 @@ iaas-deploy up dev \
 - For AWS: `{ "region": "us-east-1", "profile": "default", "accessKeyId": "...", "secretAccessKey": "..." }`
 - For GCP: `{ "project": "my-gcp-project", "region": "us-central1", "zone": "us-central1-a", "credentials": "/path/to/key.json" }`
 
-> **Note:** You can still use `--secretsJson`, `--valuesJson`, and `--cloudConfig` with raw JSON strings, but using files is recommended for all non-trivial deployments.
+> **Note:** You can still use `--secretsJson` and `--cloudConfig` with raw JSON strings, but using files is recommended for all non-trivial deployments.
 
 ### Available Actions
 

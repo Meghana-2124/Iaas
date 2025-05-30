@@ -34,25 +34,6 @@ async function enhancedDeploymentExample() {
         sendgrid: "SG...",
       },
     }),
-    valuesJson: JSON.stringify({
-      // These are non-sensitive configuration values
-      environment: "development",
-      replicaCount: 2,
-      resources: {
-        requests: {
-          cpu: "100m",
-          memory: "128Mi",
-        },
-        limits: {
-          cpu: "500m",
-          memory: "512Mi",
-        },
-      },
-      ingress: {
-        enabled: true,
-        hostname: "acme-dev.example.com",
-      },
-    }),
     companyName: "acme-corp",
     workDir: process.cwd(),
 
@@ -87,7 +68,6 @@ async function enhancedDeploymentExample() {
     const validationErrors = validateDeploymentConfig({
       stackName: options.stackName,
       secretsJson: options.secretsJson,
-      valuesJson: options.valuesJson,
       companyName: options.companyName,
       helmChartPath: options.helmChartPath,
     });
@@ -217,7 +197,6 @@ async function multiCompanyEnhancedExample() {
       stackName: `${company.name}-${company.env}`,
       deploymentType: "dedicated",
       secretsJson: JSON.stringify(company.secrets),
-      valuesJson: JSON.stringify(company.values),
       companyName: company.name,
       workDir: process.cwd(),
       logLevel: company.logLevel,
@@ -299,7 +278,6 @@ async function errorHandlingExample() {
     stackName: "invalid-stack-name!@#", // Invalid characters
     deploymentType: "dedicated",
     secretsJson: "invalid-json", // Invalid JSON
-    valuesJson: JSON.stringify({ environment: "test" }),
     companyName: "", // Empty company name
     validateConfig: true,
   };

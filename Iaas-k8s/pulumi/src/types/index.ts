@@ -38,7 +38,6 @@ export interface DeploymentOptions {
   action: DeploymentAction;
   stackName: string;
   secretsJson: string;
-  valuesJson?: string; // DEPRECATED: Now used only for minimal overrides after dynamic values generation
   companyName: string;
   workDir?: string;
   helmChartPath?: string;
@@ -70,6 +69,7 @@ export interface DeploymentOptions {
   enableRafikiBackend?: boolean; // Enable rafiki-backend service
   enableNginx?: boolean; // Enable nginx service
   enableRedis?: boolean; // Enable redis service
+  graphqlAllowedIps?: string[]; // Allowed IPs for GraphQL API access
 
   // Image configuration
   rafikiAuthImage?: {
@@ -147,7 +147,6 @@ export interface FieldValidationError {
 export interface DeploymentConfig {
   stackName: string;
   secretsJson: string;
-  valuesJson?: string; // DEPRECATED: Now used only for minimal overrides after dynamic values generation
   companyName: string;
   cloudProvider?: "aws" | "gcp";
   helmChartPath?: string;

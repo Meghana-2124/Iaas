@@ -88,20 +88,6 @@ export const DeploymentConfigSchema = z.object({
         return false;
       }
     }, "Secrets JSON must be valid JSON object"),
-
-  valuesJson: z
-    .string()
-    .optional()
-    .refine((val) => {
-      if (!val) return true; // Now truly optional since values are generated dynamically
-      try {
-        const parsed = JSON.parse(val);
-        return typeof parsed === "object" && parsed !== null;
-      } catch {
-        return false;
-      }
-    }, "Values JSON must be valid JSON object (used only for overrides)"),
-
   companyName: z
     .string()
     .min(1, "Company name is required")
@@ -140,20 +126,6 @@ export const DeploymentOptionsSchema = z.object({
         return false;
       }
     }, "Secrets JSON must be valid JSON object"),
-
-  valuesJson: z
-    .string()
-    .optional()
-    .refine((val) => {
-      if (!val) return true; // Now truly optional since values are generated dynamically
-      try {
-        const parsed = JSON.parse(val);
-        return typeof parsed === "object" && parsed !== null;
-      } catch {
-        return false;
-      }
-    }, "Values JSON must be valid JSON object (used only for overrides)"),
-
   companyName: z
     .string()
     .min(1, "Company name is required")
@@ -342,86 +314,6 @@ export function validateSecretsStructure(
       value: secretsJson.substring(0, 100) + "...",
     });
   }
-  return errors;
-}
-
-export function validateValuesStructure(
-  valuesJson: string
-): FieldValidationError[] {
-  const errors: FieldValidationError[] = [];
-
-  if (!valuesJson) return errors; // Optional, so no error if not provided
-
-  try {
-    const values = JSON.parse(valuesJson);
-
-    // Validate common value structures
-    if (values.replicaCount !== undefined) {
-      if (typeof values.replicaCount !== "number" || values.replicaCount < 1) {
-        errors.push({
-          field: "values.replicaCount",
-          message: "replicaCount must be a positive number",
-          value: values.replicaCount,
-        });
-      }
-    }
-
-    if (values.resources) {
-      const resources = values.resources;
-      if (typeof resources !== "object" || resources === null) {
-        errors.push({
-          field: "values.resources",
-          message: "resources must be an object",
-          value: resources,
-        });
-      } else {
-        if (resources.requests) {
-          if (
-            typeof resources.requests !== "object" ||
-            resources.requests === null
-          ) {
-            errors.push({
-              field: "values.resources.requests",
-              message: "resources.requests must be an object",
-              value: resources.requests,
-            });
-          } else {
-            if (
-              resources.requests.cpu &&
-              typeof resources.requests.cpu !== "string"
-            ) {
-              errors.push({
-                field: "values.resources.requests.cpu",
-                message: 'CPU request must be a string (e.g., "100m")',
-                value: resources.requests.cpu,
-              });
-            }
-
-            if (
-              resources.requests.memory &&
-              typeof resources.requests.memory !== "string"
-            ) {
-              errors.push({
-                field: "values.resources.requests.memory",
-                message: 'Memory request must be a string (e.g., "128Mi")',
-                value: resources.requests.memory,
-              });
-            }
-          }
-        }
-        // Add similar checks for limits if needed
-      }
-    }
-  } catch (e) {
-    errors.push({
-      field: "valuesJson",
-      message: `Invalid JSON format for values: ${
-        e instanceof Error ? e.message : String(e)
-      }`,
-      value: valuesJson.substring(0, 100) + "...",
-    });
-  }
-
   return errors;
 }
 

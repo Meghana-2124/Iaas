@@ -2,7 +2,6 @@ import { automation } from "@pulumi/pulumi";
 import {
   validateDeploymentOptionsWithZod,
   validateSecretsStructure,
-  validateValuesStructure,
   validateAndProcessSecrets,
   validateNamespaceConfiguration,
 } from "../utils/validation.js";
@@ -157,26 +156,6 @@ export function validateDeploymentConfig(
         field: "secretsJson",
         message: "Secrets JSON must be valid JSON",
         value: config.secretsJson,
-      });
-    }
-  }
-
-  // Validate values JSON if provided
-  if (config.valuesJson) {
-    try {
-      const parsed = JSON.parse(config.valuesJson);
-      if (typeof parsed !== "object" || parsed === null) {
-        errors.push({
-          field: "valuesJson",
-          message: "Values JSON must be a valid JSON object",
-          value: config.valuesJson,
-        });
-      }
-    } catch (e) {
-      errors.push({
-        field: "valuesJson",
-        message: "Values JSON must be valid JSON",
-        value: config.valuesJson,
       });
     }
   }
@@ -575,7 +554,6 @@ export async function handleDeployment(
     action,
     stackName, // Keep original stackName for constructing the FQSN
     secretsJson,
-    valuesJson,
     companyName, // This will be used as the organization
     workDir,
     helmChartPath,
@@ -648,14 +626,12 @@ export async function handleDeployment(
 
       // Additional structure validation
       const secretErrors = validateSecretsStructure(secretsJson);
-      const valueErrors = valuesJson ? validateValuesStructure(valuesJson) : [];
 
-      const allValidationErrors = [...secretErrors, ...valueErrors];
-      if (allValidationErrors.length > 0) {
-        const errorMessage = `Configuration structure validation failed: ${allValidationErrors
+      if (secretErrors.length > 0) {
+        const errorMessage = `Configuration structure validation failed: ${secretErrors
           .map((e: FieldValidationError) => `${e.field}: ${e.message}`)
           .join(", ")}`;
-        throw new ConfigValidationError(errorMessage, allValidationErrors);
+        throw new ConfigValidationError(errorMessage, secretErrors);
       }
 
       logger.debug("Enhanced configuration validation passed");
@@ -769,7 +745,6 @@ export async function handleDeployment(
       const config: DeploymentConfig = {
         stackName: fullyQualifiedStackName, // Use fully qualified name
         secretsJson,
-        valuesJson,
         companyName,
         helmChartPath,
         namespace: namespace || options.namespace,
@@ -858,7 +833,6 @@ export async function handleDeployment(
         companyName,
         cloudConfig: options.cloudConfig,
         secretsJson,
-        valuesJson,
         helmChartPath,
       });
       logger.info("Pulumi config auto-setup complete.");
@@ -932,26 +906,12 @@ export async function handleDeployment(
         const dynamicHelmValues = generateDynamicHelmValues(options, logger);
 
         // Merge with tier-based values if applicable
-        let mergedHelmValues = dynamicHelmValues;
+        let finalHelmValues = dynamicHelmValues;
         if (tierAllocationResult && tierAllocationResult.success) {
           logger.info(`Merging tier-based values for ${options.planTier} tier`);
-          mergedHelmValues = mergeHelmValues(
+          finalHelmValues = mergeHelmValues(
             dynamicHelmValues,
             tierAllocationResult.helmValues,
-            {},
-            logger
-          );
-        }
-
-        // Apply user overrides if provided (valuesJson now used only for minimal overrides)
-        let finalHelmValues = mergedHelmValues;
-        if (valuesJson && valuesJson.trim() !== "" && valuesJson !== "{}") {
-          logger.info("Applying user override values from valuesJson");
-          const userOverrides = JSON.parse(valuesJson);
-          finalHelmValues = mergeHelmValues(
-            mergedHelmValues,
-            {},
-            userOverrides,
             logger
           );
         }
@@ -1665,6 +1625,22 @@ interface HelmChartValues {
     hpa?: {
       enabled: boolean;
     };
+    ports: {
+      main: number; // Main service port
+      grant: number; // Grant service port
+      admin: number; // Admin service port
+    };
+    service: {
+      type: string; // Service type (e.g., ClusterIP, LoadBalancer)
+      ports: {
+        main: number; // Main service port
+        grant: number; // Grant service port
+        admin: number; // Admin service port
+      };
+    };
+    secrets: {
+      name: string; // Name of the Kubernetes secret for Rafiki Auth
+    };
   };
 
   rafikiBackend: {
@@ -1677,6 +1653,26 @@ interface HelmChartValues {
     };
     hpa?: {
       enabled: boolean;
+    };
+    ports: {
+      openPayments: number;
+      graphql: number;
+      connector: number;
+      admin: number;
+      autopeering: number;
+    };
+    service: {
+      type: string; // Service type (e.g., ClusterIP, LoadBalancer)
+      ports: {
+        openPayments: number;
+        graphql: number;
+        connector: number;
+        admin: number;
+        autopeering: number;
+      };
+    };
+    secrets: {
+      name: string; // Name of the Kubernetes secret for Rafiki Auth
     };
   };
 
@@ -1691,10 +1687,21 @@ interface HelmChartValues {
     hpa?: {
       enabled: boolean;
     };
+    ports: {
+      http: number; // HTTP port
+    };
+    service: {
+      type: string;
+      port: number;
+    };
     config?: {
       serverNameIlp: string; // Open Payments hostname
       serverNameAuth: string; // Rafiki Auth hostname
       serverNameConnector: string; // Rafiki Connector hostname
+      graphqlAllowedIps: Array<string>;
+    };
+    configMap: {
+      name: string;
     };
   };
 
@@ -1706,12 +1713,20 @@ interface HelmChartValues {
       tag: string;
       pullPolicy: string;
     };
+    ports: {
+      redis: number; // HTTP port
+    };
+    service: {
+      type: string;
+      port: number;
+    };
   };
 
   ingress: {
     enabled: boolean;
     name: string;
     className: string;
+    annotations: Record<string, string>;
     hosts: {
       [key: string]: {
         host: string;
@@ -1771,6 +1786,22 @@ function generateDynamicHelmValues(
         tag: options.rafikiAuthImage?.tag ?? "v1.0.0-alpha.20",
         pullPolicy: options.rafikiAuthImage?.pullPolicy ?? "IfNotPresent",
       },
+      ports: {
+        main: 3006,
+        grant: 3009,
+        admin: 3001,
+      },
+      service: {
+        type: "ClusterIP",
+        ports: {
+          main: 3006,
+          grant: 3009,
+          admin: 3001,
+        },
+      },
+      secrets: {
+        name: "rafiki-auth-secrets",
+      },
     },
 
     rafikiBackend: {
@@ -1783,6 +1814,26 @@ function generateDynamicHelmValues(
         tag: options.rafikiBackendImage?.tag ?? "v1.0.0-alpha.20",
         pullPolicy: options.rafikiBackendImage?.pullPolicy ?? "IfNotPresent",
       },
+      ports: {
+        openPayments: 80,
+        graphql: 3001,
+        connector: 3002,
+        admin: 3003,
+        autopeering: 3004,
+      },
+      service: {
+        type: "ClusterIP",
+        ports: {
+          openPayments: 80,
+          graphql: 3001,
+          connector: 3002,
+          admin: 3003,
+          autopeering: 3004,
+        },
+      },
+      secrets: {
+        name: "rafiki-backend-secrets",
+      },
     },
 
     nginx: {
@@ -1793,10 +1844,21 @@ function generateDynamicHelmValues(
         tag: options.nginxImage?.tag ?? "latest",
         pullPolicy: options.nginxImage?.pullPolicy ?? "IfNotPresent",
       },
+      ports: {
+        http: 80,
+      },
+      service: {
+        type: "ClusterIP",
+        port: 80,
+      },
       config: {
         serverNameIlp: openPaymentsHostname,
         serverNameAuth: authHostname,
         serverNameConnector: connectorHostname,
+        graphqlAllowedIps: options.graphqlAllowedIps || [],
+      },
+      configMap: {
+        name: "nginx-config",
       },
     },
 
@@ -1808,12 +1870,20 @@ function generateDynamicHelmValues(
         tag: options.redisImage?.tag ?? "7-alpine",
         pullPolicy: options.redisImage?.pullPolicy ?? "IfNotPresent",
       },
+      ports: {
+        redis: 6379,
+      },
+      service: {
+        type: "ClusterIP",
+        port: 6379,
+      },
     },
 
     ingress: {
       enabled: true,
       name: "rafiki-ingress",
-      className: options.ingressClassName ?? "nginx",
+      className: options.ingressClassName ?? "gce",
+      annotations: {},
       hosts: {
         [getHostPrefix(openPaymentsHostname, defaultDomain)]: {
           host: openPaymentsHostname,
@@ -1851,6 +1921,26 @@ function generateDynamicHelmValues(
       },
     },
   };
+
+  // Configure ingress annotations based on options
+  if (options.cloudProvider === "gcp") {
+    helmValues.ingress.annotations = {
+      "kubernetes.io/ingress.class": "gce",
+      "kubernetes.io/ingress.global-static-ip-name": "rafiki-global-ip",
+      "kubernetes.io/ingress.allow-http": "true",
+      "cloud.google.com/neg": '{"ingress": true}',
+    };
+  } else if (options.cloudProvider === "aws") {
+    helmValues.ingress.annotations = {
+      "kubernetes.io/ingress.class": "alb",
+      "alb.ingress.kubernetes.io/scheme": "internet-facing",
+      "alb.ingress.kubernetes.io/listen-ports": JSON.stringify([
+        { HTTP: 80 },
+        { HTTPS: 443 },
+      ]),
+      "alb.ingress.kubernetes.io/target-type": "ip",
+    };
+  }
 
   // Configure HPA for dedicated deployments
   if (options.deploymentType === "dedicated") {
@@ -1907,10 +1997,9 @@ function generateDynamicHelmValues(
 function mergeHelmValues(
   baseValues: HelmChartValues,
   tierValues: any,
-  userOverrides: any,
   logger: Logger
 ): any {
-  logger.info("Merging Helm values: base + tier + user overrides");
+  logger.info("Merging Helm values: base + tier");
 
   // Start with base values
   let mergedValues = JSON.parse(JSON.stringify(baseValues));
@@ -1965,50 +2054,6 @@ function mergeHelmValues(
       labels: {
         ...mergedValues.labels,
         ...tierValues.labels,
-      },
-    };
-  }
-
-  // Apply user overrides last (user values take precedence except for core resource allocation)
-  if (userOverrides && Object.keys(userOverrides).length > 0) {
-    logger.info("Applying user override values");
-    mergedValues = {
-      ...mergedValues,
-      ...userOverrides,
-
-      // For services, merge carefully to preserve both base config and user overrides
-      rafikiAuth: {
-        ...mergedValues.rafikiAuth,
-        ...userOverrides.rafikiAuth,
-        // Preserve tier resource allocation if present
-        resources:
-          tierValues?.rafikiAuth?.resources ||
-          mergedValues.rafikiAuth?.resources ||
-          userOverrides.rafikiAuth?.resources,
-      },
-      rafikiBackend: {
-        ...mergedValues.rafikiBackend,
-        ...userOverrides.rafikiBackend,
-        resources:
-          tierValues?.rafikiBackend?.resources ||
-          mergedValues.rafikiBackend?.resources ||
-          userOverrides.rafikiBackend?.resources,
-      },
-      nginx: {
-        ...mergedValues.nginx,
-        ...userOverrides.nginx,
-        resources:
-          tierValues?.nginx?.resources ||
-          mergedValues.nginx?.resources ||
-          userOverrides.nginx?.resources,
-      },
-      redis: {
-        ...mergedValues.redis,
-        ...userOverrides.redis,
-        resources:
-          tierValues?.redis?.resources ||
-          mergedValues.redis?.resources ||
-          userOverrides.redis?.resources,
       },
     };
   }

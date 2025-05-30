@@ -52,10 +52,6 @@ async function main() {
             describe: "JSON string of secrets",
             type: "string",
           })
-          .option("valuesJson", {
-            describe: "JSON string of values",
-            type: "string",
-          })
           .option("cloudProvider", {
             describe: "Cloud provider (aws or gcp)",
             type: "string",
@@ -103,11 +99,6 @@ async function main() {
             describe: "Path to secrets JSON file",
             type: "string",
             demandOption: true,
-          })
-          .option("valuesFile", {
-            describe:
-              "Path to values JSON file (optional - used only for overrides after dynamic generation)",
-            type: "string",
           })
           .option("namespace", {
             describe:
@@ -243,7 +234,6 @@ async function main() {
 
         // Prefer file input if provided
         let secretsJson = args.secretsJson || "{}"; // Default to empty JSON if not provided
-        let valuesJson = undefined; // No default for values, will be generated dynamically
         let cloudConfig = undefined as any; // Default to undefined if not provided
         const fs = await import("fs");
         if (args.secretsFile) {
@@ -255,21 +245,6 @@ async function main() {
             );
             process.exit(1);
           }
-        }
-        if (args.valuesFile) {
-          try {
-            valuesJson = fs.readFileSync(args.valuesFile, "utf8");
-            console.log(
-              `[INFO] Loaded values file for overrides: ${args.valuesFile}`
-            );
-          } catch (e) {
-            console.error(
-              `Failed to read values file: ${args.valuesFile}\n${e}`
-            );
-            process.exit(1);
-          }
-        } else if (args.valuesJson) {
-          valuesJson = args.valuesJson;
         }
         // Prefer cloudConfigFile if provided
         if (args.cloudConfigFile) {
@@ -294,7 +269,6 @@ async function main() {
           action: args.action as any,
           stackName: args.stackName || "",
           secretsJson,
-          valuesJson,
           companyName: args.companyName,
           cloudProvider: args.cloudProvider as any,
           cloudConfig,
