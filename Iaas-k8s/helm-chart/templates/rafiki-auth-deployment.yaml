@@ -7,8 +7,18 @@ metadata:
   labels:
     {{- include "iaas-rafiki.enhancedLabels" . | nindent 4 }}
     app.kubernetes.io/component: {{ .Values.rafikiAuth.name }}
+    {{- if .Values.planTier }}
+    iaas.deployment/tier: {{ .Values.planTier }}
+    {{- end }}
+    {{- if eq .Values.deploymentType "shared" }}
+    iaas.deployment/type: shared
+    {{- end }}
 spec:
+  {{- if eq .Values.deploymentType "shared" }}
+  replicas: {{ .Values.rafikiAuth.replicaCount | default 1 }}
+  {{- else }}
   replicas: {{ .Values.rafikiAuth.replicaCount }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "iaas-rafiki.selectorLabels" . | nindent 6 }}
@@ -18,6 +28,22 @@ spec:
       labels:
         {{- include "iaas-rafiki.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: {{ .Values.rafikiAuth.name }}
+        {{- if .Values.planTier }}
+        iaas.deployment/tier: {{ .Values.planTier }}
+        {{- end }}
+        {{- if eq .Values.deploymentType "shared" }}
+        iaas.deployment/type: shared
+        {{- end }}
+        {{- if .Values.kubecost.enabled }}
+        kubecost.tier: {{ .Values.planTier | default "unknown" }}
+        kubecost.company: {{ .Values.companyName }}
+        kubecost.service: {{ .Values.rafikiAuth.name }}
+        {{- end }}
+      annotations:
+        {{- if .Values.kubecost.enabled }}
+        kubecost.io/tier: {{ .Values.planTier | default "unknown" }}
+        kubecost.io/company: {{ .Values.companyName }}
+        {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

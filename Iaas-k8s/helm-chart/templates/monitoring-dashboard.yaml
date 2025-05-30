@@ -1,0 +1,491 @@
+# Monitoring Dashboard Configuration
+# filepath: /Users/mide/Documents/work/Iaas/Iaas-k8s/helm-chart/templates/monitoring-dashboard.yaml
+
+{{- if .Values.monitoring.dashboards.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tier-monitoring-dashboard
+  namespace: {{ .Values.namespace | default "default" }}
+  labels:
+    app.kubernetes.io/name: tier-monitoring
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    iaas.deployment/tier: {{ .Values.planTier | default "basic" }}
+    iaas.deployment/component: monitoring
+    grafana_dashboard: "1"
+data:
+  tier-resource-allocation.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Tier-Based Resource Allocation - {{ .Values.companyName }}",
+        "tags": ["iaas", "tier", "resources", "{{ .Values.planTier }}"],
+        "style": "dark",
+        "timezone": "UTC",
+        "refresh": "30s",
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "panels": [
+          {
+            "id": 1,
+            "title": "Current Tier: {{ .Values.planTier | upper }}",
+            "type": "stat",
+            "targets": [],
+            "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+            "options": {
+              "colorMode": "background",
+              "graphMode": "none",
+              "justifyMode": "center",
+              "orientation": "horizontal",
+              "reduceOptions": {
+                "values": false,
+                "calcs": ["lastNotNull"],
+                "fields": ""
+              },
+              "text": {
+                "titleSize": 18,
+                "valueSize": 24
+              },
+              "textMode": "value"
+            },
+            "pluginVersion": "8.0.0",
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "thresholds"
+                },
+                "custom": {
+                  "align": "center",
+                  "displayMode": "basic"
+                },
+                "mappings": [],
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"color": "green", "value": null}
+                  ]
+                },
+                "unit": "string"
+              },
+              "overrides": []
+            }
+          },
+          {
+            "id": 2,
+            "title": "Monthly Cost Budget",
+            "type": "gauge",
+            "targets": [
+              {
+                "expr": "kubecost_cluster_costs{tier=\"{{ .Values.planTier }}\",company=\"{{ .Values.companyName }}\"}",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+            "options": {
+              "reduceOptions": {
+                "values": false,
+                "calcs": ["lastNotNull"],
+                "fields": ""
+              },
+              "orientation": "auto",
+              "textMode": "auto",
+              "colorMode": "value",
+              "graphMode": "area",
+              "justifyMode": "center"
+            },
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "thresholds"
+                },
+                "custom": {
+                  "align": "center",
+                  "displayMode": "basic"
+                },
+                "mappings": [],
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "yellow", "value": {{ .Values.tierConfig.costBudget | default 100 | mul 0.8 }}},
+                    {"color": "red", "value": {{ .Values.tierConfig.costBudget | default 100 }}}
+                  ]
+                },
+                "unit": "currencyUSD",
+                "max": {{ .Values.tierConfig.costBudget | default 100 | mul 1.2 }},
+                "min": 0
+              },
+              "overrides": []
+            }
+          },
+          {
+            "id": 3,
+            "title": "CPU Usage by Service",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "rate(container_cpu_usage_seconds_total{namespace=\"{{ .Values.namespace | default "default" }}\",pod=~\".*{{ .Values.companyName }}.*\"}[5m])",
+                "legendFormat": "{{pod}}",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
+                "custom": {
+                  "axisLabel": "",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "drawStyle": "line",
+                  "fillOpacity": 10,
+                  "gradientMode": "none",
+                  "hideFrom": {
+                    "graph": false,
+                    "legend": false,
+                    "tooltip": false
+                  },
+                  "lineInterpolation": "linear",
+                  "lineWidth": 1,
+                  "pointSize": 5,
+                  "scaleDistribution": {
+                    "type": "linear"
+                  },
+                  "showPoints": "never",
+                  "spanNulls": true
+                },
+                "mappings": [],
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "red", "value": 80}
+                  ]
+                },
+                "unit": "percentunit",
+                "max": {{ .Values.tierResources.cpu | default "1" }}
+              },
+              "overrides": []
+            }
+          },
+          {
+            "id": 4,
+            "title": "Memory Usage by Service",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "container_memory_usage_bytes{namespace=\"{{ .Values.namespace | default "default" }}\",pod=~\".*{{ .Values.companyName }}.*\"} / 1024 / 1024 / 1024",
+                "legendFormat": "{{pod}}",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
+                "custom": {
+                  "axisLabel": "",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "drawStyle": "line",
+                  "fillOpacity": 10,
+                  "gradientMode": "none",
+                  "hideFrom": {
+                    "graph": false,
+                    "legend": false,
+                    "tooltip": false
+                  },
+                  "lineInterpolation": "linear",
+                  "lineWidth": 1,
+                  "pointSize": 5,
+                  "scaleDistribution": {
+                    "type": "linear"
+                  },
+                  "showPoints": "never",
+                  "spanNulls": true
+                },
+                "mappings": [],
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "red", "value": 80}
+                  ]
+                },
+                "unit": "decbytes",
+                "max": {{ .Values.tierResources.memory | regexReplaceAll "Gi" "" | default "2" }}
+              },
+              "overrides": []
+            }
+          },
+          {
+            "id": 5,
+            "title": "Replica Count Status",
+            "type": "table",
+            "targets": [
+              {
+                "expr": "kube_deployment_status_replicas{namespace=\"{{ .Values.namespace | default "default" }}\",deployment=~\".*{{ .Values.companyName }}.*\"}",
+                "format": "table",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "thresholds"
+                },
+                "custom": {
+                  "align": "auto",
+                  "displayMode": "auto"
+                },
+                "mappings": [],
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "red", "value": 80}
+                  ]
+                }
+              },
+              "overrides": []
+            }
+          },
+          {
+            "id": 6,
+            "title": "Storage Usage",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "kubelet_volume_stats_used_bytes{namespace=\"{{ .Values.namespace | default "default" }}\",persistentvolumeclaim=~\".*{{ .Values.companyName }}.*\"} / 1024 / 1024 / 1024",
+                "legendFormat": "{{persistentvolumeclaim}}",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 6, "w": 12, "x": 0, "y": 16},
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
+                "custom": {
+                  "axisLabel": "",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "drawStyle": "line",
+                  "fillOpacity": 10,
+                  "gradientMode": "none",
+                  "hideFrom": {
+                    "graph": false,
+                    "legend": false,
+                    "tooltip": false
+                  },
+                  "lineInterpolation": "linear",
+                  "lineWidth": 1,
+                  "pointSize": 5,
+                  "scaleDistribution": {
+                    "type": "linear"
+                  },
+                  "showPoints": "never",
+                  "spanNulls": true
+                },
+                "mappings": [],
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "red", "value": 80}
+                  ]
+                },
+                "unit": "decbytes"
+              },
+              "overrides": []
+            }
+          },
+          {
+            "id": 7,
+            "title": "Cost Breakdown by Service",
+            "type": "piechart",
+            "targets": [
+              {
+                "expr": "kubecost_allocation_cpu_cost{tier=\"{{ .Values.planTier }}\",company=\"{{ .Values.companyName }}\"}",
+                "legendFormat": "{{service}} - CPU",
+                "refId": "A"
+              },
+              {
+                "expr": "kubecost_allocation_memory_cost{tier=\"{{ .Values.planTier }}\",company=\"{{ .Values.companyName }}\"}",
+                "legendFormat": "{{service}} - Memory",
+                "refId": "B"
+              }
+            ],
+            "gridPos": {"h": 6, "w": 12, "x": 12, "y": 16},
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
+                "custom": {
+                  "hideFrom": {
+                    "graph": false,
+                    "legend": false,
+                    "tooltip": false
+                  }
+                },
+                "mappings": [],
+                "unit": "currencyUSD"
+              },
+              "overrides": []
+            }
+          }
+        ],
+        "templating": {
+          "list": [
+            {
+              "name": "tier",
+              "type": "constant",
+              "current": {
+                "value": "{{ .Values.planTier }}",
+                "text": "{{ .Values.planTier }}"
+              }
+            },
+            {
+              "name": "company",
+              "type": "constant",
+              "current": {
+                "value": "{{ .Values.companyName }}",
+                "text": "{{ .Values.companyName }}"
+              }
+            }
+          ]
+        },
+        "annotations": {
+          "list": [
+            {
+              "name": "Tier Changes",
+              "datasource": "Prometheus",
+              "enable": true,
+              "expr": "changes(kubecost_tier_allocation{company=\"{{ .Values.companyName }}\"}[1h])",
+              "iconColor": "blue",
+              "tags": ["tier-change"]
+            }
+          ]
+        }
+      }
+    }
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tier-alerts-dashboard
+  namespace: {{ .Values.namespace | default "default" }}
+  labels:
+    app.kubernetes.io/name: tier-alerts
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    iaas.deployment/tier: {{ .Values.planTier | default "basic" }}
+    iaas.deployment/component: monitoring
+    grafana_dashboard: "1"
+data:
+  tier-alerts.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Tier Alerts & Budget Management - {{ .Values.companyName }}",
+        "tags": ["iaas", "alerts", "budget", "{{ .Values.planTier }}"],
+        "style": "dark",
+        "timezone": "UTC",
+        "refresh": "1m",
+        "time": {
+          "from": "now-24h",
+          "to": "now"
+        },
+        "panels": [
+          {
+            "id": 1,
+            "title": "Budget Status",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "(kubecost_cluster_costs{tier=\"{{ .Values.planTier }}\",company=\"{{ .Values.companyName }}\"} / {{ .Values.tierConfig.costBudget | default 100 }}) * 100",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 6, "w": 8, "x": 0, "y": 0},
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "thresholds"
+                },
+                "mappings": [],
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "yellow", "value": 70},
+                    {"color": "orange", "value": 85},
+                    {"color": "red", "value": 95}
+                  ]
+                },
+                "unit": "percent",
+                "max": 120,
+                "min": 0
+              }
+            }
+          },
+          {
+            "id": 2,
+            "title": "Resource Utilization Alerts",
+            "type": "table",
+            "targets": [
+              {
+                "expr": "ALERTS{tier=\"{{ .Values.planTier }}\",company=\"{{ .Values.companyName }}\",alertstate=\"firing\"}",
+                "format": "table",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 6, "w": 16, "x": 8, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "Cost Trend",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "kubecost_cluster_costs{tier=\"{{ .Values.planTier }}\",company=\"{{ .Values.companyName }}\"}",
+                "legendFormat": "Daily Cost",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 6},
+            "fieldConfig": {
+              "defaults": {
+                "unit": "currencyUSD",
+                "custom": {
+                  "drawStyle": "line",
+                  "lineInterpolation": "linear",
+                  "lineWidth": 2,
+                  "fillOpacity": 20,
+                  "gradientMode": "opacity"
+                },
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "yellow", "value": {{ .Values.tierConfig.costBudget | default 100 | mul 0.8 }}},
+                    {"color": "red", "value": {{ .Values.tierConfig.costBudget | default 100 }}}
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+{{- end }}

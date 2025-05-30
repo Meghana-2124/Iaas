@@ -54,6 +54,10 @@ export interface DeploymentOptions {
   // Namespace-based deployment support
   namespace?: string; // Kubernetes namespace for the deployment
   deploymentType: "shared" | "dedicated"; // Deployment strategy
+  // Tier-based resource allocation support
+  planTier?: import("./plans.js").PlanTier; // Plan tier for shared deployments
+  kubecostEnabled?: boolean; // Enable Kubecost cost tracking
+  billingAccountId?: string; // Billing account for cost attribution
 }
 
 export interface AwsCloudConfig {
@@ -98,6 +102,9 @@ export interface DeploymentConfig {
   cloudConfig?: CloudConfig;
   namespace?: string;
   deploymentType?: "shared" | "dedicated";
+  // Tier-based configuration
+  planTier?: import("./plans.js").PlanTier;
+  kubecostEnabled?: boolean;
 }
 
 // Namespace-specific configuration
@@ -130,6 +137,26 @@ export interface SharedClusterConfig {
   zone?: string;
   project?: string; // For GCP
   vpcId?: string; // For AWS
+  kubecostEnabled?: boolean; // Whether Kubecost is installed
+  tierCapacity?: {
+    maxBasicTenants: number;
+    maxStandardTenants: number;
+    maxPremiumTenants: number;
+    maxEnterpriseTenants: number;
+  };
+}
+
+// Tier-based deployment result
+export interface TierDeploymentResult extends DeploymentResult {
+  tierInfo?: {
+    planTier: import("./plans.js").PlanTier;
+    resourceAllocation: import("./plans.js").TierResourceAllocation;
+    costEstimate?: {
+      monthly: number;
+      currency: string;
+    };
+    kubecostDashboardUrl?: string;
+  };
 }
 
 // Infrastructure lookup results

@@ -15,7 +15,6 @@ import {
   ConsoleLogger,
   createProgressCallback,
 } from "../core/deployment.js";
-import type { DeploymentStatus } from "../types/index.js";
 
 async function exampleRollbackUsage() {
   const logger = new ConsoleLogger("info");

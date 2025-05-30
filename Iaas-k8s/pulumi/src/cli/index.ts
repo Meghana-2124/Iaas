@@ -3,16 +3,26 @@
 import { handleDeployment, DeploymentOptions } from "../index.js";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
+import { addTierCommands } from "./tier-commands.js";
+import { Logger } from "../types/index.js";
+
+// Simple console logger for CLI
+const consoleLogger: Logger = {
+  info: (message: string) => console.log(`[INFO] ${message}`),
+  warn: (message: string) => console.warn(`[WARN] ${message}`),
+  error: (message: string) => console.error(`[ERROR] ${message}`),
+  debug: (message: string) => console.debug(`[DEBUG] ${message}`),
+};
 
 // CLI entry point with auto-setup-config support
 async function main() {
-  const argv = yargs(hideBin(process.argv))
+  const argv = addTierCommands(yargs(hideBin(process.argv)))
     .scriptName("iaas-deploy")
     .usage("$0 <action> <stackName> [options]")
     .command(
       "$0 <action> <stackName>",
       "Run a Pulumi deployment action",
-      (yargs) =>
+      (yargs: any) =>
         yargs
           .positional("action", {
             describe:
@@ -111,7 +121,10 @@ async function main() {
             default: "dedicated",
           })
           .help(),
-      async (args) => {
+      async (args: any) => {
+        // Add logger to args for tier commands
+        args.logger = consoleLogger;
+
         // Prefer file input if provided
         let secretsJson = args.secretsJson || "{}"; // Default to empty JSON if not provided
         let valuesJson = args.valuesJson || "{}"; // Default to empty JSON if not provided
