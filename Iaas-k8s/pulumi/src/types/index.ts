@@ -56,6 +56,7 @@ export interface DeploymentOptions {
   // Tier-based resource allocation support
   planTier?: import("./plans.js").PlanTier; // Plan tier for shared deployments
   kubecostEnabled?: boolean; // Enable Kubecost cost tracking
+  kubecostApiKey?: string; // API key for Kubecost authentication
   billingAccountId?: string; // Billing account for cost attribution
 
   // Dynamic Helm values configuration
@@ -143,6 +144,16 @@ export interface DeploymentResult {
   kubeconfig?: string;
   rollbackPerformed?: boolean;
   duration?: number; // in milliseconds
+  costMonitoring?: {
+    enabled: boolean;
+    namespace?: string;
+    tier?: string;
+    budget?: number;
+    currency?: string;
+    dashboardUrl?: string;
+    reason?: string;
+    error?: string;
+  };
 }
 
 export interface FieldValidationError {
@@ -252,7 +263,13 @@ export interface TierDeploymentResult extends DeploymentResult {
       monthly: number;
       currency: string;
     };
-    kubecostDashboardUrl?: string;
+    costMonitoring?: {
+      enabled: boolean;
+      dashboardUrl?: string;
+      budgetAllocated?: number;
+      budgetThresholds?: number[];
+      alertsEnabled?: boolean;
+    };
   };
 }
 

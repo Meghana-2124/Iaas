@@ -512,17 +512,31 @@ export function generateDynamicHelmValues(
     memory: tierCalculator.getTierMemoryLimits(tier),
   };
 
-  // Add Kubecost configuration
+  // Add enhanced Kubecost configuration with dynamic parameter generation
   const kubecost = {
-    enabled: options.kubecostEnabled ?? true,
+    enabled: options.kubecostEnabled ?? options.deploymentType === "shared",
     prometheus: {
       fqdn: options.prometheusFqdn ?? `prometheus.${defaultDomain}`,
     },
     "cost-analyzer": {
       nodeSelector: (options.cloudProvider === "gcp"
         ? { "cloud.google.com/gke-nodepool": "default-pool" }
+        : options.cloudProvider === "aws"
+        ? { "kubernetes.io/os": "linux" }
         : { "kubernetes.io/os": "linux" }) as Record<string, string>,
-      tolerations: [],
+      tolerations:
+        options.cloudProvider === "gcp"
+          ? [
+              {
+                key: "cloud.google.com/gke-preemptible",
+                operator: "Equal",
+                value: "true",
+                effect: "NoSchedule",
+              },
+            ]
+          : [],
+      // Add API key configuration if provided
+      apiKey: options.kubecostApiKey || "",
     },
     networkCosts: {
       enabled: options.deploymentType === "dedicated",
@@ -530,6 +544,73 @@ export function generateDynamicHelmValues(
     clusterName:
       options.clusterName ||
       `${options.companyName}-${options.environment || "default"}`,
+
+    // Enhanced kubecost configuration for tier-based deployments
+    version: "prod-1.108.1",
+    clusterId: `${options.companyName}-${options.deploymentType}-cluster`,
+    namespace: "kubecost", // Standard namespace for kubecost installation
+
+    // Tier-specific configuration
+    labels: {
+      tier: tier,
+      company: options.companyName,
+      billingAccount: options.billingAccountId || "",
+      namespace: options.namespace || "",
+      deploymentType: options.deploymentType,
+    },
+
+    // Cost allocation labels for proper resource attribution
+    costAllocationLabels: [
+      "app.kubernetes.io/name",
+      "app.kubernetes.io/component",
+      "iaas.deployment/company",
+      "iaas.deployment/tier",
+      "iaas.deployment/type",
+      "iaas.deployment/namespace",
+    ],
+
+    // Tier-specific pricing configuration
+    pricing: generateTierPricing(tier, options.cloudProvider || "gcp"),
+
+    // Alert configuration with tier-aware thresholds
+    alerts: {
+      enabled: Boolean(options.kubecostEnabled),
+      budgetThreshold: 90, // Alert at 90% of tier budget
+      anomalyThreshold: 150, // Alert for 150% of normal usage
+      webhookUrl: "", // Would be populated from deployment config
+      email: {
+        enabled: false, // Would be configured per deployment
+        to: [],
+        from: "kubecost@example.com",
+      },
+    },
+
+    // Prometheus integration
+    prometheusUrl: options.prometheusFqdn
+      ? `http://${options.prometheusFqdn}`
+      : `http://prometheus-server.prometheus.svc.cluster.local`,
+
+    // RBAC and service configuration
+    rbac: { enabled: true },
+    service: { type: "ClusterIP" },
+
+    // Ingress configuration for kubecost UI access
+    ingress: {
+      enabled: options.kubecostEnabled || false,
+      host: `kubecost.${defaultDomain}`,
+      annotations: generateIngressAnnotations(options.cloudProvider || "gcp"),
+      path: "/",
+      pathType: "Prefix",
+      tls: { enabled: true },
+    },
+
+    // Set up monitoring for the namespace
+    namespaceMonitoring: {
+      enabled: options.kubecostEnabled && Boolean(options.namespace),
+      namespace: options.namespace || "",
+      company: options.companyName,
+      tier: tier,
+    },
   };
 
   // Add enhanced network policy configuration
@@ -643,6 +724,75 @@ export function generateDynamicHelmValues(
     "Dynamic Helm chart values generated successfully with enhanced parameter coverage"
   );
   return enhancedHelmValues;
+}
+
+// =============================================================================
+// Helper Functions for Enhanced Kubecost Configuration
+// =============================================================================
+
+/**
+ * Generate tier-specific pricing configuration for kubecost
+ */
+function generateTierPricing(tier: PlanTier, cloudProvider: string): any {
+  // Base pricing (these would be real cloud provider pricing in production)
+  const basePricing = {
+    cpu: "0.031611", // $ per CPU hour
+    memory: "0.004446", // $ per GB hour
+    storage: "0.04", // $ per GB month
+  };
+
+  // Tier-specific multipliers for pricing optimization
+  const tierMultipliers: Record<
+    PlanTier,
+    { cpu: number; memory: number; storage: number }
+  > = {
+    [PlanTier.BASIC]: { cpu: 1.0, memory: 1.0, storage: 1.0 },
+    [PlanTier.STANDARD]: { cpu: 1.1, memory: 1.1, storage: 1.0 },
+    [PlanTier.PREMIUM]: { cpu: 1.2, memory: 1.2, storage: 1.1 },
+    [PlanTier.ENTERPRISE]: { cpu: 1.3, memory: 1.3, storage: 1.2 },
+  };
+
+  const multiplier = tierMultipliers[tier];
+
+  return {
+    basic: { ...basePricing },
+    standard: { ...basePricing },
+    premium: { ...basePricing },
+    enterprise: { ...basePricing },
+    [tier]: {
+      cpu: (parseFloat(basePricing.cpu) * multiplier.cpu).toFixed(6),
+      memory: (parseFloat(basePricing.memory) * multiplier.memory).toFixed(6),
+      storage: (parseFloat(basePricing.storage) * multiplier.storage).toFixed(
+        6
+      ),
+    },
+  };
+}
+
+/**
+ * Generate ingress annotations for kubecost based on cloud provider
+ */
+function generateIngressAnnotations(
+  cloudProvider: string
+): Record<string, string> {
+  switch (cloudProvider) {
+    case "gcp":
+      return {
+        "kubernetes.io/ingress.class": "gce",
+        "kubernetes.io/ingress.allow-http": "false",
+        "cloud.google.com/neg": '{"ingress": true}',
+      };
+    case "aws":
+      return {
+        "kubernetes.io/ingress.class": "alb",
+        "alb.ingress.kubernetes.io/scheme": "internet-facing",
+        "alb.ingress.kubernetes.io/listen-ports": '[{"HTTPS":443}]',
+      };
+    default:
+      return {
+        "kubernetes.io/ingress.class": "nginx",
+      };
+  }
 }
 
 export function mergeHelmValues(
