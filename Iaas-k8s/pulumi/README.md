@@ -373,7 +373,10 @@ iaas-deploy up acme-prod \
   --cloudProvider aws \
   --cloudConfigFile ./config/cloudConfig.aws.json \
   --defaultDomain "acme.com" \
-  --rafikiAuthImageTag "v2.0.0" \
+  --authDomain  "auth-ilp.acme.com" \
+  --openPaymentsDomain  "ilp.acme.com" \
+  --connectorDomain  "ilp-connector.acme.com" \
+  --rafikiAuthImageTag "latest" \
   --autoSetupConfig
 ```
 

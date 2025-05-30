@@ -136,7 +136,25 @@ async function main() {
             describe:
               "Default domain for constructing hostnames (e.g., 'example.com')",
             type: "string",
-            default: "example.com",
+            required: true,
+          })
+          .option("authDomain", {
+            describe:
+              "Domain for the authentication service (e.g., 'auth.example.com')",
+            type: "string",
+            required: true,
+          })
+          .option("openPaymentsDomain", {
+            describe:
+              "Domain for the Open Payments service (e.g., 'ilp.example.com')",
+            type: "string",
+            required: true,
+          })
+         .option("connectorDomain", {
+            describe:
+              "Domain for the connector service (e.g., 'ilp-connector.example.com')",
+            type: "string",
+            required: true,
           })
           .option("enableRafikiAuth", {
             describe: "Enable rafiki-auth service",
@@ -292,7 +310,10 @@ async function main() {
           kubecostEnabled: args.kubecostEnabled,
 
           // Dynamic Helm values configuration
-          defaultDomain: args.defaultDomain,
+          defaultDomain: args.defaultDomain,  
+          authDomain: args.authDomain,
+          openPaymentsDomain: args.openPaymentsDomain,
+          connectorDomain: args.connectorDomain,
           enableRafikiAuth: args.enableRafikiAuth,
           enableRafikiBackend: args.enableRafikiBackend,
           enableNginx: args.enableNginx,

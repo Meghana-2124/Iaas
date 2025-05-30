@@ -181,6 +181,9 @@ export const DeploymentOptionsSchema = z.object({
 
   // Dynamic Helm values configuration
   defaultDomain: z.string().optional(),
+  authDomain: z.string().optional(),
+  openPaymentsDomain: z.string().optional(),
+  connectorDomain: z.string().optional(),
   enableRafikiAuth: z.boolean().optional(),
   enableRafikiBackend: z.boolean().optional(),
   enableNginx: z.boolean().optional(),

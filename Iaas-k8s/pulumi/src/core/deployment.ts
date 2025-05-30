@@ -1,5 +1,4 @@
 import { automation } from "@pulumi/pulumi";
-import * as path from "path";
 import {
   validateDeploymentOptionsWithZod,
   validateSecretsStructure,
@@ -21,7 +20,6 @@ import type {
   FieldValidationError,
   DeploymentConfig,
 } from "../types/index.js";
-import type { PlanTier } from "../types/plans.js";
 
 // =============================================================================
 // Error Classes
@@ -591,10 +589,8 @@ export async function handleDeployment(
     deploymentType,
   } = options;
 
-  // Determine project name (e.g., from package.json or a fixed value)
-  // For now, let's assume a fixed project name. Replace with dynamic determination if needed.
-  const projectName = "iaas-k8s"; // Placeholder: Replace with actual project name
-  const organizationName = "organization"; // Using "organization" as per error message
+  const projectName = "iaas-k8s";
+  const organizationName = "organization"; // Using "organization", needed for Pulumi LocalWorkspace
 
   // Construct the fully qualified stack name based on deployment type
   let fullyQualifiedStackName: string;
@@ -1696,9 +1692,9 @@ interface HelmChartValues {
       enabled: boolean;
     };
     config?: {
-      serverNameIlp: string;
-      serverNameAuth: string;
-      serverNameConnector: string;
+      serverNameIlp: string; // Open Payments hostname
+      serverNameAuth: string; // Rafiki Auth hostname
+      serverNameConnector: string; // Rafiki Connector hostname
     };
   };
 
