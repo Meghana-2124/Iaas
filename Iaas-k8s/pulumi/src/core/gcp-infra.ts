@@ -187,12 +187,10 @@ users:
 
 // Function to look up existing shared GKE cluster and static IP (using Pulumi data sources)
 export function lookupSharedGkeClusterSync(
-  sharedClusterName: string,
-  cloudProvider: string = "gcp",
-  project?: string
+  sharedClusterName: string
 ): pulumi.Output<ClusterLookupResult> {
   const gcpConfig = new pulumi.Config("gcp");
-  const configProject = project || gcpConfig.require("project");
+  const configProject = gcpConfig.require("project");
   const region = gcpConfig.get("region") || "us-central1";
   const zone = gcpConfig.get("zone") || "us-central1-a";
 

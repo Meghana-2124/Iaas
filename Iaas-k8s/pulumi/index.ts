@@ -104,8 +104,7 @@ function setupInfrastructure() {
     if (cloudProvider === "aws") {
       // Use the lookup function which returns a pulumi output
       const lookupResult = awsInfra.lookupSharedEksClusterSync(
-        sharedClusterName,
-        cloudProvider
+        sharedClusterName
       );
 
       // Create cluster based on lookup result
@@ -135,7 +134,6 @@ function setupInfrastructure() {
       // Use the lookup function which returns a pulumi output
       const lookupResult = gcpInfra.lookupSharedGkeClusterSync(
         sharedClusterName,
-        cloudProvider
       );
 
       // Create cluster based on lookup result

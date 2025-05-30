@@ -59,9 +59,7 @@ export function createEksCluster(name: string, stack: string) {
 
 // Function to look up existing shared EKS cluster (using Pulumi data sources)
 export function lookupSharedEksClusterSync(
-  sharedClusterName: string,
-  cloudProvider: string = "aws",
-  project?: string
+  sharedClusterName: string
 ): pulumi.Output<ClusterLookupResult> {
   const region = aws.getRegion().then((r) => r.name);
 
