@@ -8,6 +8,9 @@ metadata:
     app.kubernetes.io/component: namespace
     iaas.deployment/type: {{ .Values.deploymentType | default "dedicated" }}
     iaas.deployment/company: {{ .Values.companyName }}
+    iaas.deployment/tier: "{{ .Values.planTier }}"
+    iaas.cost/budget-enabled: "true"
+    iaas.cost/monitoring: "enabled"
   {{- with .Values.namespaceAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

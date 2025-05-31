@@ -80,6 +80,138 @@ helm repo add kubecost https://kubecost.github.io/cost-analyzer/
 helm repo update
 ```
 
+## Step 2.1: Configure Tier Information and Client Namespaces
+
+Before deploying Kubecost, you need to understand how to configure tier information and client namespace support for comprehensive cost tracking.
+
+### Understanding Tier-Based Cost Allocation
+
+The IaaS platform supports multiple tiers with different resource allocations and cost structures:
+
+#### Available Tiers
+
+- **BASIC**: Entry-level tier with minimal resources
+- **STANDARD**: Standard tier for regular production workloads
+- **PREMIUM**: Enhanced tier with increased resources and features
+- **ENTERPRISE**: High-performance tier for demanding workloads
+
+#### Tier Configuration in Kubecost
+
+Kubecost will automatically track costs based on tier labels applied to namespaces and resources. Each client deployment will be labeled with:
+
+```yaml
+labels:
+  iaas.deployment/tier: "standard" # The tier level
+  iaas.deployment/company: "client-name" # Client company name
+  iaas.deployment/namespace: "client-ns" # Client namespace
+  iaas.cost/budget-enabled: "true" # Enable budget tracking
+  iaas.cost/monitoring: "enabled" # Enable cost monitoring
+```
+
+### Client Namespace Configuration
+
+Each client will have their own dedicated namespace with tier-specific resource quotas and cost allocation:
+
+#### Namespace Structure
+
+```
+client-{company}-{tier}-{environment}
+```
+
+Examples:
+
+- `client-acme-standard-prod`
+- `client-techcorp-premium-staging`
+- `client-startup-basic-dev`
+
+#### Automatic Cost Allocation
+
+Kubecost will automatically:
+
+1. Track costs per client namespace
+2. Allocate shared costs based on tier usage
+3. Generate tier-specific budget alerts
+4. Provide per-client cost dashboards
+
+### Budget Configuration by Tier
+
+Default monthly budgets per tier:
+
+- **BASIC**: $99/month
+- **STANDARD**: $299/month
+- **PREMIUM**: $599/month
+- **ENTERPRISE**: Custom pricing
+
+Budget alert thresholds:
+
+- Warning: 75% of budget
+- Critical: 90% of budget
+- Cutoff: 100% of budget
+
+### Tier Configuration in Values File
+
+Add the following tier-specific configuration to your `kubecost-values.yaml` file:
+
+```yaml
+# Tier-based cost allocation configuration
+kubecostModel:
+  # Enable tier-based cost allocation
+  tierEnabled: true
+
+  # Default tier configurations
+  tiers:
+    basic:
+      name: "BASIC"
+      monthlyBudget: 99
+      description: "Entry-level tier with minimal resources"
+      resourceQuotas:
+        cpu: "2"
+        memory: "4Gi"
+        storage: "20Gi"
+
+    standard:
+      name: "STANDARD"
+      monthlyBudget: 299
+      description: "Standard tier for regular production workloads"
+      resourceQuotas:
+        cpu: "8"
+        memory: "16Gi"
+        storage: "100Gi"
+
+    premium:
+      name: "PREMIUM"
+      monthlyBudget: 599
+      description: "Enhanced tier with increased resources and features"
+      resourceQuotas:
+        cpu: "16"
+        memory: "32Gi"
+        storage: "500Gi"
+
+    enterprise:
+      name: "ENTERPRISE"
+      monthlyBudget: 1999
+      description: "High-performance tier for demanding workloads"
+      resourceQuotas:
+        cpu: "32"
+        memory: "64Gi"
+        storage: "1Ti"
+
+  # Budget alert configuration
+  budgetAlerts:
+    enabled: true
+    thresholds:
+      warning: 75
+      critical: 90
+      cutoff: 100
+
+  # Namespace labeling for automatic tier detection
+  namespaceLabels:
+    tierLabel: "iaas.deployment/tier"
+    companyLabel: "iaas.deployment/company"
+    budgetLabel: "iaas.cost/budget-enabled"
+    monitoringLabel: "iaas.cost/monitoring"
+```
+
 ## Step 3: Configure Values File
 
 Create a custom values file for your deployment:

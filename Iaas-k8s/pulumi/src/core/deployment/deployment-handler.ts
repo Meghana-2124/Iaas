@@ -8,7 +8,6 @@ import {
 import { DeploymentMonitor } from "../../utils/monitoring.js";
 import { PulumiConfigManager } from "../../utils/config-manager.js";
 import { TierCalculator } from "../../utils/tier-calculator.js";
-import { createKubecostClient, KubecostClient } from "../../utils/kubecost-client.js";
 import type {
   DeploymentOptions,
   DeploymentResult,
@@ -34,7 +33,6 @@ import {
   withErrorHandling,
   executeDeploymentAction,
 } from "./deployment-executor.js";
-import { DEFAULT_KUBECOST_CONFIG } from "../../types/plans.js";
 
 // =============================================================================
 // Main Deployment Handler
@@ -93,27 +91,6 @@ export async function handleDeployment(
   let rollbackPerformed = false;
   let stack: automation.Stack | undefined;
   let result: DeploymentResult;
-
-  // Initialize Kubecost client
-  let kubecostClient: KubecostClient | undefined;
-  if (options.kubecostEnabled) {
-  
-    // Determine the kubecost URL based on domain or use default
-    const kubecostDomain = options.defaultDomain
-      ? `kubecost.${options.defaultDomain}`
-      : "kubecost.default.svc.cluster.local";
-    const kubecostUrl = `https://${kubecostDomain}`;
-
-    // Create the kubecost client
-    kubecostClient = createKubecostClient(
-      kubecostUrl,
-      DEFAULT_KUBECOST_CONFIG,
-      logger,
-      options.kubecostApiKey
-    );
-
-    logger.info("Kubecost client initialized successfully");
-  }
 
   try {
     reportProgress("initializing", "Starting deployment initialization");
@@ -199,13 +176,13 @@ export async function handleDeployment(
       const tierCalculator = new TierCalculator(logger);
       const effectiveNamespace = namespace || options.namespace!;
 
-      // Calculate tier allocation with kubecost integration
+      // Calculate tier allocation for resource planning
       tierAllocationResult = tierCalculator.calculateTierAllocation(
         options.planTier,
         companyName,
         effectiveNamespace,
         {
-          kubecostEnabled: options.kubecostEnabled || false,
+          kubecostEnabled: false, // Kubecost integration removed
           billingAccountId: options.billingAccountId,
         }
       );
@@ -425,15 +402,6 @@ export async function handleDeployment(
           await stack!.setConfig("planTier", { value: options.planTier });
           logger.info(`Set planTier configuration: ${options.planTier}`);
         }
-
-        if (options.kubecostEnabled) {
-          await stack!.setConfig("kubecostEnabled", {
-            value: String(options.kubecostEnabled),
-          });
-          logger.info(
-            `Set kubecostEnabled configuration: ${options.kubecostEnabled}`
-          );
-        }
       },
       logger,
       "configuration setup"
@@ -514,112 +482,8 @@ export async function handleDeployment(
       duration: Date.now() - startTime,
     };
 
-    // Setup KubeCost monitoring for the namespace if enabled
-    if (
-      options.kubecostEnabled &&
-      kubecostClient &&
-      options.namespace &&
-      action === "up"
-    ) {
-      try {
-        logger.info(
-          `Setting up Kubecost monitoring for namespace ${options.namespace}`
-        );
-        reportProgress(
-          "configuring",
-          "Setting up cost monitoring for namespace"
-        );
-
-        // Validate the kubecost connection
-        const { validateKubecostConnection } = await import(
-          "../../utils/kubecost-client.js"
-        );
-        const connectionValid = await validateKubecostConnection(
-          kubecostClient,
-          logger
-        );
-
-        if (connectionValid) {
-          // Set up monitoring for the namespace
-          // Import PlanTier enum from plans module
-          const { PlanTier } = await import("../../types/plans.js");
-
-          // Ensure we have a valid PlanTier enum value
-          const tierOrDefault = options.planTier || PlanTier.BASIC;
-
-          // Calculate budget allocation based on tier
-          const budgetAllocation =
-            await kubecostClient.allocateBudgetForNamespace(
-              options.namespace,
-              options.companyName,
-              tierOrDefault,
-              options.billingAccountId
-            );
-
-          logger.info(
-            `Kubecost budget allocation for ${options.namespace}: $${budgetAllocation.allocatedBudget} ${budgetAllocation.currency}`
-          );
-
-          // Get the Kubecost dashboard URL
-          const kubecostUrl = await kubecostClient.getDashboardUrl(
-            options.namespace
-          );
-
-          // Add Kubecost info to operation result
-          operationResult.costMonitoring = {
-            enabled: true,
-            namespace: options.namespace,
-            tier: tierOrDefault,
-            budget: budgetAllocation.allocatedBudget,
-            currency: budgetAllocation.currency || "USD",
-            dashboardUrl: kubecostUrl,
-          };
-
-          logger.info(
-            `Kubecost monitoring setup complete. Dashboard: ${kubecostUrl}`
-          );
-        } else {
-          logger.warn(
-            "Kubecost connection validation failed. Cost monitoring not set up."
-          );
-          operationResult.costMonitoring = {
-            enabled: false,
-            reason: "Connection validation failed",
-          };
-        }
-      } catch (kubecostError) {
-        // Log the error but don't fail the deployment
-        logger.error(
-          `Error setting up Kubecost monitoring: ${
-            kubecostError instanceof Error
-              ? kubecostError.message
-              : String(kubecostError)
-          }`
-        );
-        operationResult.costMonitoring = {
-          enabled: false,
-          error:
-            kubecostError instanceof Error
-              ? kubecostError.message
-              : String(kubecostError),
-        };
-      }
-    } else if (options.kubecostEnabled && action === "up") {
-      logger.info(
-        "Kubecost is enabled but no namespace provided or client initialization failed"
-      );
-      operationResult.costMonitoring = {
-        enabled: false,
-        reason: !options.namespace
-          ? "No namespace provided"
-          : "Client initialization failed",
-      };
-    }
-
     // Add tier-specific information to the result if available
     if (tierAllocationResult && tierAllocationResult.success) {
-      const kubecostDashboardUrl = operationResult.costMonitoring?.dashboardUrl;
-
       // Cast to TierDeploymentResult type to add tierInfo
       (result as TierDeploymentResult) = {
         success: true,
@@ -632,13 +496,11 @@ export async function handleDeployment(
             currency: "USD",
           },
           costMonitoring: {
-            enabled: Boolean(
-              options.kubecostEnabled && operationResult.costMonitoring?.enabled
-            ),
-            dashboardUrl: kubecostDashboardUrl,
-            budgetAllocated: operationResult.costMonitoring?.budget,
+            enabled: false, // Kubecost integration removed
+            dashboardUrl: undefined,
+            budgetAllocated: undefined,
             budgetThresholds: [75, 90, 100], // Standard thresholds
-            alertsEnabled: Boolean(options.kubecostEnabled),
+            alertsEnabled: false,
           },
         },
         duration: Date.now() - startTime,
@@ -653,13 +515,6 @@ export async function handleDeployment(
     }
 
     reportProgress("completed", `${action} operation completed successfully`);
-
-    // Add information about kubecost dashboard if available
-    if (operationResult.costMonitoring?.dashboardUrl) {
-      logger.info(
-        `Cost monitoring dashboard URL: ${operationResult.costMonitoring.dashboardUrl}`
-      );
-    }
 
     logger.info("Pulumi operation completed successfully");
 

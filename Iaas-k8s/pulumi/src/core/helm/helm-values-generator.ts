@@ -515,14 +515,14 @@ export function generateDynamicHelmValues(
       maxReplicas: 2,
     },
     standard: {
-      cpu: "8",
+      cpu: "8", 
       memory: "16Gi",
       storage: "100Gi",
       maxReplicas: 5,
     },
     premium: {
       cpu: "32",
-      memory: "64Gi",
+      memory: "64Gi", 
       storage: "500Gi",
       maxReplicas: 10,
     },
