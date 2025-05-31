@@ -1,4 +1,3 @@
-import yargs from "yargs";
 import { TierCalculator } from "../utils/tier-calculator.js";
 import { TierMigrationManager } from "../utils/tier-migration.js";
 import { createKubecostClient } from "../utils/kubecost-client.js";

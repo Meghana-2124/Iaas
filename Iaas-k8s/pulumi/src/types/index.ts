@@ -55,8 +55,6 @@ export interface DeploymentOptions {
   deploymentType: "shared" | "dedicated"; // Deployment strategy
   // Tier-based resource allocation support
   planTier?: import("./plans.js").PlanTier; // Plan tier for shared deployments
-  kubecostEnabled?: boolean; // Enable Kubecost cost tracking
-  kubecostApiKey?: string; // API key for Kubecost authentication
   billingAccountId?: string; // Billing account for cost attribution
 
   // Dynamic Helm values configuration

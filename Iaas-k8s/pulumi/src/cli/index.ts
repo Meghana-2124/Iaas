@@ -118,11 +118,6 @@ async function main() {
             type: "string",
             choices: ["basic", "standard", "premium", "enterprise"],
           })
-          .option("kubecostEnabled", {
-            describe: "Enable Kubecost cost tracking and monitoring",
-            type: "boolean",
-            default: false,
-          })
           .option("defaultDomain", {
             describe:
               "Default domain for constructing hostnames (e.g., 'example.com')",
@@ -281,8 +276,6 @@ async function main() {
           namespace: args.namespace,
           deploymentType: args.deploymentType as "shared" | "dedicated",
           planTier: args.planTier as any,
-          kubecostEnabled: args.kubecostEnabled,
-
           // Dynamic Helm values configuration
           defaultDomain: args.defaultDomain,  
           authDomain: args.authDomain,
