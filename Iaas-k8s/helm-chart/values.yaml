@@ -1,6 +1,6 @@
 # Default values for iaas-k8s Helm chart
-# This configuration provides Kubecost integration with custom Prometheus
-# for cost monitoring and optimization in Kubernetes environments
+# This configuration provides tier-based resource allocation and monitoring
+# for Kubernetes environments without embedded cost management tools
 
 # Global configuration
 global:
@@ -11,7 +11,7 @@ global:
   planTier: "basic"
 
 # Namespace configuration
-namespace: "kubecost"
+namespace: "default"
 companyName: "mycompany"
 deploymentType: "dedicated"
 namespaceAnnotations: {}
@@ -33,281 +33,38 @@ gcp:
     healthCheck:
       checkIntervalSec: 30
 
-# Kubecost configuration
-kubecost:
-  # Enable Kubecost installation
-  enabled: true
+# Tier-based resource configuration
+tierConfig:
+  # Resource limits by tier
+  basic:
+    cpu: "2"
+    memory: "4Gi"
+    storage: "20Gi"
+    maxReplicas: 2
   
-  # Kubecost version
-  version: "prod-1.108.1"
+  standard:
+    cpu: "8"
+    memory: "16Gi"
+    storage: "100Gi"
+    maxReplicas: 5
   
-  # Cluster identification
-  clusterId: "shared-cluster"
+  premium:
+    cpu: "32"
+    memory: "64Gi"
+    storage: "500Gi"
+    maxReplicas: 10
   
-  # Kubecost token for enterprise features
-  token: ""
-  
-  # Log level (debug, info, warn, error)
-  logLevel: "info"
-  
-  # Prometheus URL (defaults to custom Prometheus in kubecost namespace)
-  prometheusUrl: "http://prometheus-server.kubecost.svc.cluster.local"
-  
-  # Service configuration
-  service:
-    type: "ClusterIP"
-    port: 9090
-    targetPort: 9090
-    annotations: {}
-  
-  # RBAC configuration
-  rbac:
-    enabled: true
-    serviceAccountName: "kubecost-cost-analyzer"
-  
-  # Prometheus configuration
-  prometheus:
-    # Enable custom Prometheus deployment
-    enabled: true
-    
-    # Prometheus image configuration
-    image:
-      repository: "prom/prometheus"
-      tag: "v2.47.0"
-      pullPolicy: "IfNotPresent"
-    
-    # Data retention configuration
-    retention: "15d"
-    retentionSize: "10GB"
-    
-    # Storage configuration
-    persistence:
-      enabled: true
-      storageClass: ""
-      size: "20Gi"
-      accessMode: "ReadWriteOnce"
-    
-    # Resource limits and requests
-    resources:
-      limits:
-        cpu: "2000m"
-        memory: "4Gi"
-      requests:
-        cpu: "500m"
-        memory: "2Gi"
-    
-    # Scrape configuration
-    scrapeInterval: "30s"
-    scrapeTimeout: "10s"
-    evaluationInterval: "30s"
-    
-    # External labels
-    externalLabels:
-      cluster: "shared-cluster"
-      environment: "production"
-    
-    # Service configuration
-    service:
-      type: "ClusterIP"
-      port: 9090
-      
-    # ServiceMonitor configuration for Prometheus Operator
-    serviceMonitor:
-      enabled: true
-      additionalLabels: {}
-      interval: "30s"
-      scrapeTimeout: "10s"
-    
-    # Prometheus Operator integration
-    operator:
-      enabled: false
-    
-    # CRD creation
-    createCRDs: false
-    
-    # Alertmanager integration
-    alertmanager:
-      enabled: false
-      url: ""
-    
-    # Additional scrape configs
-    additionalScrapeConfigs: []
-    
-    # Remote write configuration
-    remoteWrite:
-      enabled: false
-      configs: []
-    
-    # TSDB configuration
-    tsdb:
-      minBlockDuration: "2h"
-      maxBlockDuration: "25h"
-      walCompression: true
-    
-    # Security context
-    securityContext:
-      runAsUser: 65534
-      runAsGroup: 65534
-      fsGroup: 65534
-      runAsNonRoot: true
-  
-  # Node Exporter configuration
-  nodeExporter:
-    # Enable Node Exporter
-    enabled: true
-    
-    # Node Exporter image
-    image:
-      repository: "prom/node-exporter"
-      tag: "v1.7.0"
-      pullPolicy: "IfNotPresent"
-    
-    # Resource limits and requests
-    resources:
-      limits:
-        cpu: "200m"
-        memory: "128Mi"
-      requests:
-        cpu: "100m"
-        memory: "64Mi"
-    
-    # Security context
-    securityContext:
-      runAsUser: 65534
-      runAsGroup: 65534
-      runAsNonRoot: true
-  
-  # Cost allocation configuration
-  allocation:
-    # Enable tier-based allocation
-    tierBased: true
-    
-    # Enable company-based allocation
-    companyBased: true
-    
-    # Share idle costs
-    shareIdle: true
-    
-    # Namespaces to share costs
-    shareNamespaces:
-      - "kube-system"
-      - "kubecost"
-  
-  # Resource efficiency thresholds
-  efficiency:
-    # CPU efficiency threshold (0.0-1.0)
-    cpuThreshold: 0.5
-    
-    # Memory efficiency threshold (0.0-1.0)
-    memoryThreshold: 0.7
-  
-  # Alert configuration
-  alerts:
-    # Cost spike detection threshold (percentage increase)
-    spikeThreshold: 50
-    
-    # Budget alert webhook URL
-    webhookUrl: ""
-    
-    # Slack configuration
-    slack:
-      enabled: false
-      channel: "#alerts"
-      webhook: ""
-  
-  # Budget configuration by tier
-  budgets:
-    basic:
-      # Monthly budget limit in USD
-      monthly: 100
-      # Alert thresholds (percentage of budget)
-      alertThresholds:
-        warning: 80
-        critical: 95
-    
-    standard:
-      monthly: 500
-      alertThresholds:
-        warning: 80
-        critical: 95
-    
-    premium:
-      monthly: 2000
-      alertThresholds:
-        warning: 80
-        critical: 95
-    
-    enterprise:
-      monthly: 10000
-      alertThresholds:
-        warning: 80
-        critical: 95
-  
-  # Cost limits by tier (for daily alerting)
-  limits:
-    basic:
-      dailyCost: 5      # $5/day
-      hourlyCost: 0.25  # $0.25/hour
-    
-    standard:
-      dailyCost: 20     # $20/day
-      hourlyCost: 1     # $1/hour
-    
-    premium:
-      dailyCost: 80     # $80/day
-      hourlyCost: 4     # $4/hour
-    
-    enterprise:
-      dailyCost: 400    # $400/day
-      hourlyCost: 20    # $20/hour
-  
-  # Pricing configuration by tier (cost per hour in USD)
-  pricing:
-    basic:
-      cpu: "0.031611"     # Cost per CPU hour
-      memory: "0.004446"  # Cost per GB memory hour  
-      storage: "0.04"     # Cost per GB storage hour
-    
-    standard:
-      cpu: "0.031611"
-      memory: "0.004446"
-      storage: "0.04"
-    
-    premium:
-      cpu: "0.031611"
-      memory: "0.004446"
-      storage: "0.04"
-    
-    enterprise:
-      cpu: "0.031611"
-      memory: "0.004446"
-      storage: "0.04"
-  
-  # Billing configuration
-  billing:
-    # Enable billing integration
-    enabled: false
-    
-    # Cloud provider (aws, gcp, azure)
-    provider: ""
-    
-    # Billing API configuration
-    api:
-      key: ""
-      secret: ""
-      region: ""
-  
-  # Network policy configuration
-  networkPolicy:
-    enabled: false
-  
-  # Ingress configuration
-  ingress:
-    enabled: false
-    className: ""
-    annotations: {}
-    hosts: []
-    tls: []
+  enterprise:
+    cpu: "128"
+    memory: "256Gi"
+    storage: "2Ti"
+    maxReplicas: 50
+
+# Tier resources (used by templates)
+tierResources:
+  cpu: "1"
+  memory: "2Gi"
+  storage: "10Gi"
 
 # Additional monitoring components
 monitoring:

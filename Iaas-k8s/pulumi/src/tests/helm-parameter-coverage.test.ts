@@ -22,7 +22,6 @@ describe("Helm Parameter Coverage Validation", () => {
     prometheusFqdn: "prometheus.example.com",
     managedCertificateEnabled: true,
     createKubernetesSecrets: true,
-    kubecostEnabled: true,
     action: "up",
     stackName: "test-stack",
     secretsJson: "{}",
@@ -36,25 +35,26 @@ describe("Helm Parameter Coverage Validation", () => {
     expect(helmValues.monitoring?.dashboards?.enabled).toBe(true);
 
     expect(helmValues.tierConfig).toBeDefined();
-    expect(helmValues.tierConfig?.costBudget).toBe(299); // Standard tier budget
+    expect(helmValues.tierConfig?.standard?.cpu).toBe("8"); // Standard tier CPU
+    expect(helmValues.tierConfig?.standard?.memory).toBe("16Gi"); // Standard tier memory
 
     expect(helmValues.tierResources).toBeDefined();
     expect(helmValues.tierResources?.cpu).toBe("4000m"); // Standard tier CPU limits
     expect(helmValues.tierResources?.memory).toBe("8Gi"); // Standard tier memory limits
   });
 
-  it("should generate all kubecost configuration parameters", () => {
+  it("should generate all application service parameters", () => {
     const helmValues = generateDynamicHelmValues(baseOptions, mockLogger);
 
-    expect(helmValues.kubecost).toBeDefined();
-    expect(helmValues.kubecost?.enabled).toBe(true);
-    expect(helmValues.kubecost?.prometheus?.fqdn).toBe(
-      "prometheus.example.com"
-    );
-    expect(helmValues.kubecost?.["cost-analyzer"]?.nodeSelector).toBeDefined();
-    expect(helmValues.kubecost?.["cost-analyzer"]?.tolerations).toEqual([]);
-    expect(helmValues.kubecost?.networkCosts?.enabled).toBe(false); // shared deployment
-    expect(helmValues.kubecost?.clusterName).toBe("test-cluster");
+    // Validate core application services are enabled
+    expect(helmValues.rafikiAuth).toBeDefined();
+    expect(helmValues.rafikiAuth?.enabled).toBe(true);
+    expect(helmValues.rafikiBackend).toBeDefined();
+    expect(helmValues.rafikiBackend?.enabled).toBe(true);
+    expect(helmValues.nginx).toBeDefined();
+    expect(helmValues.nginx?.enabled).toBe(true);
+    expect(helmValues.redis).toBeDefined();
+    expect(helmValues.redis?.enabled).toBe(true);
   });
 
   it("should generate tier resource quota configuration", () => {
@@ -147,8 +147,10 @@ describe("Helm Parameter Coverage Validation", () => {
     // Monitoring should still be enabled for dedicated
     expect(helmValues.monitoring?.dashboards?.enabled).toBe(true);
 
-    // Kubecost network costs should be enabled for dedicated
-    expect(helmValues.kubecost?.networkCosts?.enabled).toBe(true);
+    // HPA should be enabled for dedicated deployments
+    expect(helmValues.rafikiAuth?.hpa?.enabled).toBe(true);
+    expect(helmValues.rafikiBackend?.hpa?.enabled).toBe(true);
+    expect(helmValues.nginx?.hpa?.enabled).toBe(true);
 
     // Resource quota should be disabled for dedicated
     expect(helmValues.tierResourceQuota?.enabled).toBe(false);
@@ -163,13 +165,9 @@ describe("Helm Parameter Coverage Validation", () => {
     // Validate all critical template parameters are covered
     const criticalParams = [
       "monitoring.dashboards.enabled",
-      "tierConfig.costBudget",
+      "tierConfig.standard.cpu",
       "tierResources.cpu",
       "tierResources.memory",
-      "kubecost.enabled",
-      "kubecost.prometheus.fqdn",
-      "kubecost.cost-analyzer.nodeSelector",
-      "kubecost.clusterName",
       "tierResourceQuota.enabled",
       "tierResourceQuota.requests.cpu",
       "tierResourceQuota.requests.memory",
@@ -179,6 +177,10 @@ describe("Helm Parameter Coverage Validation", () => {
       "gcp.managedCertificate.enabled",
       "kubernetesSecrets.rafikiAuth.create",
       "kubernetesSecrets.rafikiBackend.create",
+      "rafikiAuth.enabled",
+      "rafikiBackend.enabled",
+      "nginx.enabled",
+      "redis.enabled",
     ];
 
     criticalParams.forEach((param) => {
@@ -189,20 +191,26 @@ describe("Helm Parameter Coverage Validation", () => {
     });
   });
 
-  it("should validate tier budget calculation accuracy", () => {
-    // Test all tiers
+  it("should validate tier configuration accuracy", () => {
+    // Test all tiers have their configuration
     const tiers = [
       PlanTier.BASIC,
       PlanTier.STANDARD,
       PlanTier.PREMIUM,
       PlanTier.ENTERPRISE,
     ];
-    const expectedBudgets = [99, 299, 599, 1299];
+    const expectedCpuLimits = ["2", "8", "32", "128"];
 
     tiers.forEach((tier, index) => {
       const tierOptions = { ...baseOptions, planTier: tier };
       const helmValues = generateDynamicHelmValues(tierOptions, mockLogger);
-      expect(helmValues.tierConfig?.costBudget).toBe(expectedBudgets[index]);
+
+      // Check that the tier config exists and has expected CPU limits
+      expect(helmValues.tierConfig).toBeDefined();
+      const tierName = tier.toLowerCase();
+      const tierConfig =
+        helmValues.tierConfig?.[tierName as keyof typeof helmValues.tierConfig];
+      expect(tierConfig?.cpu).toBe(expectedCpuLimits[index]);
     });
   });
 

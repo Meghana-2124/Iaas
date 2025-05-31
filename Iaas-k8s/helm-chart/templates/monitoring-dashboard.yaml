@@ -75,11 +75,11 @@ data:
           },
           {
             "id": 2,
-            "title": "Monthly Cost Budget",
+            "title": "CPU Usage",
             "type": "gauge",
             "targets": [
               {
-                "expr": "kubecost_cluster_costs{tier=\"{{ .Values.planTier }}\",company=\"{{ .Values.companyName }}\"}",
+                "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"{{ .Values.namespace }}\"}[5m]))",
                 "refId": "A"
               }
             ],
@@ -110,12 +110,12 @@ data:
                   "mode": "absolute",
                   "steps": [
                     {"color": "green", "value": null},
-                    {"color": "yellow", "value": {{ .Values.tierConfig.costBudget | default 100 | mul 0.8 }}},
-                    {"color": "red", "value": {{ .Values.tierConfig.costBudget | default 100 }}}
+                    {"color": "yellow", "value": 0.8},
+                    {"color": "red", "value": 1}
                   ]
                 },
-                "unit": "currencyUSD",
-                "max": {{ .Values.tierConfig.costBudget | default 100 | mul 1.2 }},
+                "unit": "short",
+                "max": {{ .Values.tierResources.cpu | default "1" }},
                 "min": 0
               },
               "overrides": []
@@ -311,17 +311,17 @@ data:
           },
           {
             "id": 7,
-            "title": "Cost Breakdown by Service",
+            "title": "Resource Usage by Service",
             "type": "piechart",
             "targets": [
               {
-                "expr": "kubecost_allocation_cpu_cost{tier=\"{{ .Values.planTier }}\",company=\"{{ .Values.companyName }}\"}",
-                "legendFormat": "{{ "{{service}}" }} - CPU",
+                "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"{{ .Values.namespace }}\"}[5m])) by (pod)",
+                "legendFormat": "{{ "{{pod}}" }} - CPU",
                 "refId": "A"
               },
               {
-                "expr": "kubecost_allocation_memory_cost{tier=\"{{ .Values.planTier }}\",company=\"{{ .Values.companyName }}\"}",
-                "legendFormat": "{{ "{{service}}" }} - Memory",
+                "expr": "sum(container_memory_working_set_bytes{namespace=\"{{ .Values.namespace }}\"}) by (pod)",
+                "legendFormat": "{{ "{{pod}}" }} - Memory",
                 "refId": "B"
               }
             ],
@@ -339,7 +339,7 @@ data:
                   }
                 },
                 "mappings": [],
-                "unit": "currencyUSD"
+                "unit": "short"
               },
               "overrides": []
             }
@@ -371,7 +371,7 @@ data:
               "name": "Tier Changes",
               "datasource": "Prometheus",
               "enable": true,
-              "expr": "changes(kubecost_tier_allocation{company=\"{{ .Values.companyName }}\"}[1h])",
+              "expr": "changes(kube_deployment_status_replicas{namespace=\"{{ .Values.namespace }}\"}[1h])",
               "iconColor": "blue",
               "tags": ["tier-change"]
             }
@@ -397,8 +397,8 @@ data:
     {
       "dashboard": {
         "id": null,
-        "title": "Tier Alerts & Budget Management - {{ .Values.companyName }}",
-        "tags": ["iaas", "alerts", "budget", "{{ .Values.planTier }}"],
+        "title": "Tier Resource Monitoring - {{ .Values.companyName }}",
+        "tags": ["iaas", "alerts", "resources", "{{ .Values.planTier }}"],
         "style": "dark",
         "timezone": "UTC",
         "refresh": "1m",
@@ -409,11 +409,11 @@ data:
         "panels": [
           {
             "id": 1,
-            "title": "Budget Status",
+            "title": "CPU Utilization Status",
             "type": "stat",
             "targets": [
               {
-                "expr": "(kubecost_cluster_costs{tier=\"{{ .Values.planTier }}\",company=\"{{ .Values.companyName }}\"} / {{ .Values.tierConfig.costBudget | default 100 }}) * 100",
+                "expr": "(sum(rate(container_cpu_usage_seconds_total{namespace=\"{{ .Values.namespace }}\"}[5m])) / {{ .Values.tierResources.cpu | default "1" | regexReplaceAll "m" "" | div 1000 }}) * 100",
                 "refId": "A"
               }
             ],
@@ -454,19 +454,24 @@ data:
           },
           {
             "id": 3,
-            "title": "Cost Trend",
+            "title": "Resource Usage Trend",
             "type": "timeseries",
             "targets": [
               {
-                "expr": "kubecost_cluster_costs{tier=\"{{ .Values.planTier }}\",company=\"{{ .Values.companyName }}\"}",
-                "legendFormat": "Daily Cost",
+                "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"{{ .Values.namespace }}\"}[5m]))",
+                "legendFormat": "CPU Usage",
                 "refId": "A"
+              },
+              {
+                "expr": "sum(container_memory_working_set_bytes{namespace=\"{{ .Values.namespace }}\"}) / 1024 / 1024 / 1024",
+                "legendFormat": "Memory Usage (GB)",
+                "refId": "B"
               }
             ],
             "gridPos": {"h": 8, "w": 24, "x": 0, "y": 6},
             "fieldConfig": {
               "defaults": {
-                "unit": "currencyUSD",
+                "unit": "short",
                 "custom": {
                   "drawStyle": "line",
                   "lineInterpolation": "linear",
@@ -478,8 +483,8 @@ data:
                   "mode": "absolute",
                   "steps": [
                     {"color": "green", "value": null},
-                    {"color": "yellow", "value": {{ .Values.tierConfig.costBudget | default 100 | mul 0.8 }}},
-                    {"color": "red", "value": {{ .Values.tierConfig.costBudget | default 100 }}}
+                    {"color": "yellow", "value": 0.8},
+                    {"color": "red", "value": 1}
                   ]
                 }
               }

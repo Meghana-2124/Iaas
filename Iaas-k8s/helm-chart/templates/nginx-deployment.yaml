@@ -34,16 +34,7 @@ spec:
         {{- if eq .Values.deploymentType "shared" }}
         iaas.deployment/type: shared
         {{- end }}
-        {{- if .Values.kubecost.enabled }}
-        kubecost.tier: {{ .Values.planTier | default "unknown" }}
-        kubecost.company: {{ .Values.companyName }}
-        kubecost.service: {{ .Values.nginx.name }}
-        {{- end }}
-      annotations:
-        {{- if .Values.kubecost.enabled }}
-        kubecost.io/tier: {{ .Values.planTier | default "unknown" }}
-        kubecost.io/company: {{ .Values.companyName }}
-        {{- end }}
+      annotations: {}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

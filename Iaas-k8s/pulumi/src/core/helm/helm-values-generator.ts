@@ -163,27 +163,35 @@ interface HelmChartValues {
   };
 
   tierConfig?: {
-    costBudget: number;
+    basic?: {
+      cpu: string;
+      memory: string;
+      storage: string;
+      maxReplicas: number;
+    };
+    standard?: {
+      cpu: string;
+      memory: string;
+      storage: string;
+      maxReplicas: number;
+    };
+    premium?: {
+      cpu: string;
+      memory: string;
+      storage: string;
+      maxReplicas: number;
+    };
+    enterprise?: {
+      cpu: string;
+      memory: string;
+      storage: string;
+      maxReplicas: number;
+    };
   };
 
   tierResources?: {
     cpu: string;
     memory: string;
-  };
-
-  kubecost?: {
-    enabled: boolean;
-    prometheus: {
-      fqdn: string;
-    };
-    "cost-analyzer": {
-      nodeSelector: Record<string, string>;
-      tolerations: Array<any>;
-    };
-    networkCosts: {
-      enabled: boolean;
-    };
-    clusterName: string;
   };
 
   tierResourceQuota?: {
@@ -498,48 +506,38 @@ export function generateDynamicHelmValues(
   };
 
   // Add tier configuration for monitoring dashboards
+  // Tier configuration based on PlanTier
   const tierConfig = {
-    costBudget: tierCalculator.getTierBudget(tier),
+    basic: {
+      cpu: "2",
+      memory: "4Gi",
+      storage: "20Gi",
+      maxReplicas: 2,
+    },
+    standard: {
+      cpu: "8",
+      memory: "16Gi",
+      storage: "100Gi",
+      maxReplicas: 5,
+    },
+    premium: {
+      cpu: "32",
+      memory: "64Gi",
+      storage: "500Gi",
+      maxReplicas: 10,
+    },
+    enterprise: {
+      cpu: "128",
+      memory: "256Gi",
+      storage: "2Ti",
+      maxReplicas: 50,
+    },
   };
 
   // Add tier resources for monitoring dashboards
   const tierResources = {
     cpu: tierCalculator.getTierCpuLimits(tier),
     memory: tierCalculator.getTierMemoryLimits(tier),
-  };
-
-  // Add comprehensive Kubecost configuration aligned with helm templates
-  const kubecost = {
-    // Core configuration (using only available DeploymentOptions properties)
-    enabled: options.kubecostEnabled ?? options.deploymentType === "shared",
-    prometheus: {
-      enabled: true,
-      fqdn:
-        options.prometheusFqdn ||
-        "prometheus-server.kubecost.svc.cluster.local",
-    },
-    "cost-analyzer": {
-      nodeSelector: {},
-      tolerations: [],
-    },
-    networkCosts: {
-      enabled: false,
-    },
-    clusterName:
-      options.clusterName ||
-      `${options.companyName}-${options.deploymentType}-cluster`,
-    ingress: {
-      enabled: true,
-      className: "gce",
-      annotations: {
-        "kubernetes.io/ingress.class": "gce",
-        "kubernetes.io/ingress.global-static-ip-name": "kubecost-global-ip",
-        "kubernetes.io/ingress.allow-http": "true",
-      },
-      host: "kubecost.your-domain.com",
-      path: "/",
-      pathType: "Prefix",
-    },
   };
 
   // Add enhanced network policy configuration
@@ -642,7 +640,6 @@ export function generateDynamicHelmValues(
     monitoring,
     tierConfig,
     tierResources,
-    kubecost,
     tierResourceQuota,
     gcp,
     aws,
