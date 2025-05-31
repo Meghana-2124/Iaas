@@ -484,10 +484,6 @@ export function generateDynamicHelmValues(
     helmValues.networkPolicy = { enabled: false };
   }
 
-  // =========================================================================
-  // Phase 1 Critical Parameter Generation
-  // =========================================================================
-
   // Initialize tier calculator for monitoring and resource calculations
   const tierCalculator = new TierCalculator(logger);
   const tier = (options.planTier as PlanTier) || PlanTier.BASIC;
@@ -517,6 +513,7 @@ export function generateDynamicHelmValues(
     // Core configuration (using only available DeploymentOptions properties)
     enabled: options.kubecostEnabled ?? options.deploymentType === "shared",
     prometheus: {
+      enabled: true,
       fqdn:
         options.prometheusFqdn ||
         "prometheus-server.kubecost.svc.cluster.local",
@@ -531,6 +528,18 @@ export function generateDynamicHelmValues(
     clusterName:
       options.clusterName ||
       `${options.companyName}-${options.deploymentType}-cluster`,
+    ingress: {
+      enabled: true,
+      className: "gce",
+      annotations: {
+        "kubernetes.io/ingress.class": "gce",
+        "kubernetes.io/ingress.global-static-ip-name": "kubecost-global-ip",
+        "kubernetes.io/ingress.allow-http": "true",
+      },
+      host: "kubecost.your-domain.com",
+      path: "/",
+      pathType: "Prefix",
+    },
   };
 
   // Add enhanced network policy configuration
@@ -644,75 +653,6 @@ export function generateDynamicHelmValues(
     "Dynamic Helm chart values generated successfully with enhanced parameter coverage"
   );
   return enhancedHelmValues;
-}
-
-// =============================================================================
-// Helper Functions for Enhanced Kubecost Configuration
-// =============================================================================
-
-/**
- * Generate tier-specific pricing configuration for kubecost
- */
-function generateTierPricing(tier: PlanTier, cloudProvider: string): any {
-  // Base pricing (these would be real cloud provider pricing in production)
-  const basePricing = {
-    cpu: "0.031611", // $ per CPU hour
-    memory: "0.004446", // $ per GB hour
-    storage: "0.04", // $ per GB month
-  };
-
-  // Tier-specific multipliers for pricing optimization
-  const tierMultipliers: Record<
-    PlanTier,
-    { cpu: number; memory: number; storage: number }
-  > = {
-    [PlanTier.BASIC]: { cpu: 1.0, memory: 1.0, storage: 1.0 },
-    [PlanTier.STANDARD]: { cpu: 1.1, memory: 1.1, storage: 1.0 },
-    [PlanTier.PREMIUM]: { cpu: 1.2, memory: 1.2, storage: 1.1 },
-    [PlanTier.ENTERPRISE]: { cpu: 1.3, memory: 1.3, storage: 1.2 },
-  };
-
-  const multiplier = tierMultipliers[tier];
-
-  return {
-    basic: { ...basePricing },
-    standard: { ...basePricing },
-    premium: { ...basePricing },
-    enterprise: { ...basePricing },
-    [tier]: {
-      cpu: (parseFloat(basePricing.cpu) * multiplier.cpu).toFixed(6),
-      memory: (parseFloat(basePricing.memory) * multiplier.memory).toFixed(6),
-      storage: (parseFloat(basePricing.storage) * multiplier.storage).toFixed(
-        6
-      ),
-    },
-  };
-}
-
-/**
- * Generate ingress annotations for kubecost based on cloud provider
- */
-function generateIngressAnnotations(
-  cloudProvider: string
-): Record<string, string> {
-  switch (cloudProvider) {
-    case "gcp":
-      return {
-        "kubernetes.io/ingress.class": "gce",
-        "kubernetes.io/ingress.allow-http": "false",
-        "cloud.google.com/neg": '{"ingress": true}',
-      };
-    case "aws":
-      return {
-        "kubernetes.io/ingress.class": "alb",
-        "alb.ingress.kubernetes.io/scheme": "internet-facing",
-        "alb.ingress.kubernetes.io/listen-ports": '[{"HTTPS":443}]',
-      };
-    default:
-      return {
-        "kubernetes.io/ingress.class": "nginx",
-      };
-  }
 }
 
 export function mergeHelmValues(
