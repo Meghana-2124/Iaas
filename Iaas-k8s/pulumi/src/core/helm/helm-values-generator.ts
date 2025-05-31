@@ -512,105 +512,25 @@ export function generateDynamicHelmValues(
     memory: tierCalculator.getTierMemoryLimits(tier),
   };
 
-  // Add enhanced Kubecost configuration with dynamic parameter generation
+  // Add comprehensive Kubecost configuration aligned with helm templates
   const kubecost = {
+    // Core configuration (using only available DeploymentOptions properties)
     enabled: options.kubecostEnabled ?? options.deploymentType === "shared",
     prometheus: {
-      fqdn: options.prometheusFqdn ?? `prometheus.${defaultDomain}`,
+      fqdn:
+        options.prometheusFqdn ||
+        "prometheus-server.kubecost.svc.cluster.local",
     },
     "cost-analyzer": {
-      nodeSelector: (options.cloudProvider === "gcp"
-        ? { "cloud.google.com/gke-nodepool": "default-pool" }
-        : options.cloudProvider === "aws"
-        ? { "kubernetes.io/os": "linux" }
-        : { "kubernetes.io/os": "linux" }) as Record<string, string>,
-      tolerations:
-        options.cloudProvider === "gcp"
-          ? [
-              {
-                key: "cloud.google.com/gke-preemptible",
-                operator: "Equal",
-                value: "true",
-                effect: "NoSchedule",
-              },
-            ]
-          : [],
-      // Add API key configuration if provided
-      apiKey: options.kubecostApiKey || "",
+      nodeSelector: {},
+      tolerations: [],
     },
     networkCosts: {
-      enabled: options.deploymentType === "dedicated",
+      enabled: false,
     },
     clusterName:
       options.clusterName ||
-      `${options.companyName}-${options.environment || "default"}`,
-
-    // Enhanced kubecost configuration for tier-based deployments
-    version: "prod-1.108.1",
-    clusterId: `${options.companyName}-${options.deploymentType}-cluster`,
-    namespace: "kubecost", // Standard namespace for kubecost installation
-
-    // Tier-specific configuration
-    labels: {
-      tier: tier,
-      company: options.companyName,
-      billingAccount: options.billingAccountId || "",
-      namespace: options.namespace || "",
-      deploymentType: options.deploymentType,
-    },
-
-    // Cost allocation labels for proper resource attribution
-    costAllocationLabels: [
-      "app.kubernetes.io/name",
-      "app.kubernetes.io/component",
-      "iaas.deployment/company",
-      "iaas.deployment/tier",
-      "iaas.deployment/type",
-      "iaas.deployment/namespace",
-    ],
-
-    // Tier-specific pricing configuration
-    pricing: generateTierPricing(tier, options.cloudProvider || "gcp"),
-
-    // Alert configuration with tier-aware thresholds
-    alerts: {
-      enabled: Boolean(options.kubecostEnabled),
-      budgetThreshold: 90, // Alert at 90% of tier budget
-      anomalyThreshold: 150, // Alert for 150% of normal usage
-      webhookUrl: "", // Would be populated from deployment config
-      email: {
-        enabled: false, // Would be configured per deployment
-        to: [],
-        from: "kubecost@example.com",
-      },
-    },
-
-    // Prometheus integration
-    prometheusUrl: options.prometheusFqdn
-      ? `http://${options.prometheusFqdn}`
-      : `http://prometheus-server.prometheus.svc.cluster.local`,
-
-    // RBAC and service configuration
-    rbac: { enabled: true },
-    service: { type: "ClusterIP" },
-
-    // Ingress configuration for kubecost UI access
-    ingress: {
-      enabled: options.kubecostEnabled || false,
-      host: `kubecost.${defaultDomain}`,
-      annotations: generateIngressAnnotations(options.cloudProvider || "gcp"),
-      path: "/",
-      pathType: "Prefix",
-      tls: { enabled: true },
-    },
-
-    // Set up monitoring for the namespace
-    namespaceMonitoring: {
-      enabled: options.kubecostEnabled && Boolean(options.namespace),
-      namespace: options.namespace || "",
-      company: options.companyName,
-      tier: tier,
-    },
+      `${options.companyName}-${options.deploymentType}-cluster`,
   };
 
   // Add enhanced network policy configuration

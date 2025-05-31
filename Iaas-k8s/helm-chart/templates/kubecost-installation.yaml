@@ -136,7 +136,7 @@ spec:
             memory: 2Gi
         env:
         - name: PROMETHEUS_SERVER_ENDPOINT
-          value: {{ .Values.kubecost.prometheusUrl | default "http://prometheus-server.kubecost.svc.cluster.local" }}
+          value: {{ .Values.kubecost.prometheusUrl | default "http://prometheus-server.kubecost.svc.cluster.local:9090" }}
         - name: CLOUD_PROVIDER_API_KEY
           value: "AIzaSyDXQPG_MHUEy9neR7stolq6l0ujXmjJlvk"
         - name: CLUSTER_ID
@@ -183,11 +183,28 @@ spec:
             memory: 256Mi
         env:
         - name: PROMETHEUS_SERVER_ENDPOINT
-          value: {{ .Values.kubecost.prometheusUrl | default "http://prometheus-server.kubecost.svc.cluster.local" }}
+          value: {{ .Values.kubecost.prometheusUrl | default "http://prometheus-server.kubecost.svc.cluster.local:9090" }}
         - name: CLUSTER_ID
           value: {{ .Values.kubecost.clusterId | default "shared-cluster" }}
         - name: KUBECOST_NAMESPACE
           value: kubecost
+        - name: LOG_LEVEL
+          value: {{ .Values.kubecost.logLevel | default "info" }}
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 9003
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9003
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        volumeMounts:
+        - name: kubecost-config
+          mountPath: /var/configs
       {{- end }}
 
       volumes:
@@ -205,6 +222,10 @@ metadata:
     app.kubernetes.io/name: cost-analyzer
     app.kubernetes.io/instance: kubecost
     app.kubernetes.io/component: cost-analyzer
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9003"
+    prometheus.io/path: "/metrics"
 spec:
   type: {{ .Values.kubecost.service.type | default "ClusterIP" }}
   ports:
