@@ -12,6 +12,8 @@ metadata:
     {{- end }}
     {{- if eq .Values.deploymentType "shared" }}
     iaas.deployment/type: shared
+    {{- else }}
+    iaas.deployment/type: dedicated
     {{- end }}
 spec:
   {{- if eq .Values.deploymentType "shared" }}
@@ -33,6 +35,8 @@ spec:
         {{- end }}
         {{- if eq .Values.deploymentType "shared" }}
         iaas.deployment/type: shared
+        {{- else }}
+        iaas.deployment/type: dedicated
         {{- end }}
       annotations: {}
     spec:

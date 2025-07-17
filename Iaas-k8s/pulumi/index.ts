@@ -103,9 +103,8 @@ function setupInfrastructure() {
 
     if (cloudProvider === "aws") {
       // Use the lookup function which returns a pulumi output
-      const lookupResult = awsInfra.lookupSharedEksClusterSync(
-        sharedClusterName
-      );
+      const lookupResult =
+        awsInfra.lookupSharedEksClusterSync(sharedClusterName);
 
       // Create cluster based on lookup result
       cluster = lookupResult.apply((result) => {
@@ -132,9 +131,8 @@ function setupInfrastructure() {
       });
     } else if (cloudProvider === "gcp") {
       // Use the lookup function which returns a pulumi output
-      const lookupResult = gcpInfra.lookupSharedGkeClusterSync(
-        sharedClusterName,
-      );
+      const lookupResult =
+        gcpInfra.lookupSharedGkeClusterSync(sharedClusterName);
 
       // Create cluster based on lookup result
       cluster = lookupResult.apply((result) => {
@@ -172,7 +170,7 @@ function setupInfrastructure() {
 setupInfrastructure();
 
 // Deploy helm chart and create resources based on infrastructure setup
-const deploymentOutputs = cluster.apply((clusterData: any) => {
+const deploymentOutputs = pulumi.output(cluster).apply((clusterData: any) => {
   // Prepare Helm values
   const defaultChartPath = path.join(__dirname, "../..", "helm-chart");
   const chartPathDir = process.env.HELM_CHART_PATH || defaultChartPath;

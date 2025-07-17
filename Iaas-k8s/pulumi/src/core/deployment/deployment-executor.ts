@@ -55,57 +55,86 @@ export async function executeDeploymentAction(
   switch (action) {
     case "up":
       logger.info(`Running pulumi up for stack: ${stackName}...`);
-      const upRes: automation.UpResult = await stack.up({
-        onOutput: (output) => logger.debug(output),
-      });
 
-      logger.info("--- Update Summary ---");
-      if (upRes.summary) {
-        logger.info(`Status: ${upRes.summary.result}`);
-        logger.info(`Version: ${upRes.summary.version}`);
-        logger.debug(
-          "Resource changes:",
-          JSON.stringify(upRes.summary.resourceChanges, null, 2)
-        );
-      }
-
-      logger.info("--- Outputs ---");
-      logger.debug("Stack outputs:", JSON.stringify(upRes.outputs, null, 2));
-
-      // Store configuration snapshot for successful deployments
-      if (upRes.summary?.result === "succeeded") {
-        try {
-          await storeDeploymentSnapshot(stack, logger, upRes);
-          logger.debug(
-            "Configuration snapshot stored for successful deployment"
+      let lastOutputTime = Date.now();
+      const progressInterval = setInterval(() => {
+        const timeSinceLastOutput = Date.now() - lastOutputTime;
+        if (timeSinceLastOutput > 30000) {
+          // 30 seconds without output
+          logger.info(
+            `[PROGRESS] Deployment still running... (${Math.floor(
+              timeSinceLastOutput / 1000
+            )}s since last output)`
           );
-        } catch (snapshotError) {
-          logger.warn("Failed to store configuration snapshot:", snapshotError);
-          // Don't fail the deployment for snapshot errors
         }
+      }, 30000);
+
+      try {
+        const upRes: automation.UpResult = await stack.up({
+          onOutput: (output) => {
+            lastOutputTime = Date.now();
+            // Show Pulumi output at info level to ensure visibility
+            logger.info(`[PULUMI] ${output.trim()}`);
+          },
+          refresh: true, // Ensure we refresh state before updating
+        });
+
+        clearInterval(progressInterval);
+
+        logger.info("--- Update Summary ---");
+        if (upRes.summary) {
+          logger.info(`Status: ${upRes.summary.result}`);
+          logger.info(`Version: ${upRes.summary.version}`);
+          logger.debug(
+            "Resource changes:",
+            JSON.stringify(upRes.summary.resourceChanges, null, 2)
+          );
+        }
+
+        logger.info("--- Outputs ---");
+        logger.debug("Stack outputs:", JSON.stringify(upRes.outputs, null, 2));
+
+        // Store configuration snapshot for successful deployments
+        if (upRes.summary?.result === "succeeded") {
+          try {
+            await storeDeploymentSnapshot(stack, logger, upRes);
+            logger.debug(
+              "Configuration snapshot stored for successful deployment"
+            );
+          } catch (snapshotError) {
+            logger.warn(
+              "Failed to store configuration snapshot:",
+              snapshotError
+            );
+            // Don't fail the deployment for snapshot errors
+          }
+        }
+
+        let kubeconfig: string | undefined;
+        if (upRes.outputs.kubeconfig && upRes.outputs.kubeconfig.value) {
+          kubeconfig =
+            typeof upRes.outputs.kubeconfig.value === "string"
+              ? upRes.outputs.kubeconfig.value
+              : JSON.stringify(upRes.outputs.kubeconfig.value);
+
+          logger.info("Kubeconfig is available in deployment outputs");
+          logger.debug("To configure kubectl:");
+          logger.debug(
+            `1. Save kubeconfig to file: kubeconfig-${stackName}.yaml`
+          );
+          logger.debug(`2. Set KUBECONFIG environment variable`);
+          logger.debug(`3. Test connection with: kubectl get nodes`);
+        }
+
+        return {
+          outputs: upRes.outputs,
+          summary: upRes.summary,
+          kubeconfig,
+        };
+      } catch (error) {
+        clearInterval(progressInterval);
+        throw error;
       }
-
-      let kubeconfig: string | undefined;
-      if (upRes.outputs.kubeconfig && upRes.outputs.kubeconfig.value) {
-        kubeconfig =
-          typeof upRes.outputs.kubeconfig.value === "string"
-            ? upRes.outputs.kubeconfig.value
-            : JSON.stringify(upRes.outputs.kubeconfig.value);
-
-        logger.info("Kubeconfig is available in deployment outputs");
-        logger.debug("To configure kubectl:");
-        logger.debug(
-          `1. Save kubeconfig to file: kubeconfig-${stackName}.yaml`
-        );
-        logger.debug(`2. Set KUBECONFIG environment variable`);
-        logger.debug(`3. Test connection with: kubectl get nodes`);
-      }
-
-      return {
-        outputs: upRes.outputs,
-        summary: upRes.summary,
-        kubeconfig,
-      };
 
     case "preview":
       logger.info(`Running pulumi preview for stack: ${stackName}...`);
