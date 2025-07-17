@@ -1,5 +1,5 @@
 {
-  "name": "@chimoney/iaas-k8s-deployment",
+  "name": "@chimoney.io/iaas-k8s-deployment",
   "version": "1.0.0",
   "type": "module",
   "description": "Kubernetes Infrastructure as a Service deployment package for streamlined multi-cloud environments",
