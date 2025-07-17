@@ -139,7 +139,7 @@ export async function executeDeploymentAction(
     case "preview":
       logger.info(`Running pulumi preview for stack: ${stackName}...`);
       await stack.preview({
-        onOutput: (output) => logger.debug(output),
+        onOutput: (output) => logger.info(`[PULUMI] ${output.trim()}`),
         onError: (error) => logger.error(error),
       });
       logger.info("Preview finished successfully");
@@ -148,7 +148,10 @@ export async function executeDeploymentAction(
     case "destroy":
       logger.info(`Running pulumi destroy for stack: ${stackName}...`);
       const destroyRes = await stack.destroy({
-        onOutput: (output) => logger.debug(output),
+        onOutput: (output) => {
+          // Show Pulumi output at info level to ensure visibility during destroy
+          logger.info(`[PULUMI] ${output.trim()}`);
+        },
       });
 
       logger.info("--- Destroy Summary ---");
@@ -177,7 +180,7 @@ export async function executeDeploymentAction(
     case "refresh":
       logger.info(`Running pulumi refresh for stack: ${stackName}...`);
       const refreshRes = await stack.refresh({
-        onOutput: (output) => logger.debug(output),
+        onOutput: (output) => logger.info(`[PULUMI] ${output.trim()}`),
       });
 
       logger.info("--- Refresh Summary ---");
