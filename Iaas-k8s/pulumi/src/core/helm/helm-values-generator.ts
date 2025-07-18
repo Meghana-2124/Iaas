@@ -22,6 +22,9 @@ interface HelmChartValues {
     };
     hpa?: {
       enabled: boolean;
+      minReplicas?: number;
+      maxReplicas?: number;
+      targetCPUUtilizationPercentage?: number;
     };
     ports: {
       main: number; // Main service port
@@ -51,6 +54,9 @@ interface HelmChartValues {
     };
     hpa?: {
       enabled: boolean;
+      minReplicas?: number;
+      maxReplicas?: number;
+      targetCPUUtilizationPercentage?: number;
     };
     ports: {
       openPayments: number;
@@ -84,6 +90,9 @@ interface HelmChartValues {
     };
     hpa?: {
       enabled: boolean;
+      minReplicas?: number;
+      maxReplicas?: number;
+      targetCPUUtilizationPercentage?: number;
     };
     ports: {
       http: number; // HTTP port
@@ -358,7 +367,7 @@ export function generateDynamicHelmValues(
       className: options.ingressClassName ?? "gce",
       annotations: {},
       hosts: {
-        [getHostPrefix(openPaymentsHostname, defaultDomain)]: {
+        ilp: {
           host: openPaymentsHostname,
           paths: [
             {
@@ -369,7 +378,7 @@ export function generateDynamicHelmValues(
             },
           ],
         },
-        [getHostPrefix(authHostname, defaultDomain)]: {
+        auth: {
           host: authHostname,
           paths: [
             {
@@ -380,7 +389,7 @@ export function generateDynamicHelmValues(
             },
           ],
         },
-        [getHostPrefix(connectorHostname, defaultDomain)]: {
+        connector: {
           host: connectorHostname,
           paths: [
             {
@@ -420,9 +429,24 @@ export function generateDynamicHelmValues(
     const hpaEnabled = options.dedicatedDeploymentHpaEnabledByDefault ?? true;
     if (hpaEnabled) {
       logger.info("Enabling HPA for dedicated deployment components");
-      helmValues.rafikiAuth.hpa = { enabled: true };
-      helmValues.rafikiBackend.hpa = { enabled: true };
-      helmValues.nginx.hpa = { enabled: true };
+      helmValues.rafikiAuth.hpa = {
+        enabled: true,
+        minReplicas: 1,
+        maxReplicas: 5,
+        targetCPUUtilizationPercentage: 80,
+      };
+      helmValues.rafikiBackend.hpa = {
+        enabled: true,
+        minReplicas: 1,
+        maxReplicas: 5,
+        targetCPUUtilizationPercentage: 80,
+      };
+      helmValues.nginx.hpa = {
+        enabled: true,
+        minReplicas: 1,
+        maxReplicas: 5,
+        targetCPUUtilizationPercentage: 80,
+      };
     }
   }
 
@@ -625,12 +649,12 @@ export function generateDynamicHelmValues(
   const kubernetesSecrets = {
     rafikiAuth: {
       create: options.createKubernetesSecrets ?? true,
-      name: `${options.companyName}-rafiki-auth-secret`,
+      name: "rafiki-auth-secrets",
       stringData: {}, // Will be populated by secrets manager
     },
     rafikiBackend: {
       create: options.createKubernetesSecrets ?? true,
-      name: `${options.companyName}-rafiki-backend-secret`,
+      name: "rafiki-backend-secrets",
       stringData: {}, // Will be populated by secrets manager
     },
   };

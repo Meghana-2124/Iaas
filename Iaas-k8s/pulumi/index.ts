@@ -20,14 +20,33 @@ const helmValuesJson = config.get("helmValuesJson");
 const namespace = config.get("namespace");
 const deploymentType = config.get("deploymentType") || "dedicated"; // Default to dedicated for backward compatibility
 
-// Helper function to merge values
+// Helper function to merge values with deep merge support
 function loadAndMergeValues(secretsJson?: string, valuesJson?: string): any {
   let mergedValues: { [key: string]: any } = {};
+
+  // Helper function for deep merge
+  function deepMerge(target: any, source: any): any {
+    for (const key in source) {
+      if (
+        source[key] &&
+        typeof source[key] === "object" &&
+        !Array.isArray(source[key])
+      ) {
+        if (!target[key] || typeof target[key] !== "object") {
+          target[key] = {};
+        }
+        deepMerge(target[key], source[key]);
+      } else {
+        target[key] = source[key];
+      }
+    }
+    return target;
+  }
 
   if (secretsJson) {
     try {
       const secrets = JSON.parse(secretsJson);
-      Object.assign(mergedValues, secrets);
+      deepMerge(mergedValues, secrets);
       pulumi.log.info("Successfully loaded helmSecretsJson.");
     } catch (e: any) {
       pulumi.log.error(`Failed to parse helmSecretsJson: ${e.message}`);
@@ -37,7 +56,7 @@ function loadAndMergeValues(secretsJson?: string, valuesJson?: string): any {
   if (valuesJson) {
     try {
       const values = JSON.parse(valuesJson);
-      Object.assign(mergedValues, values);
+      deepMerge(mergedValues, values);
       pulumi.log.info("Successfully loaded helmValuesJson.");
     } catch (e: any) {
       pulumi.log.error(`Failed to parse helmValuesJson: ${e.message}`);
