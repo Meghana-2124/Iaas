@@ -345,10 +345,16 @@ export async function handleDeployment(
         logger.info(
           "Set helmSecretsJson configuration with processed secrets for stringData (as secret)"
         );
-
+    
         // Generate dynamic Helm values
-        logger.info("Generating dynamic Helm chart values");
-        const dynamicHelmValues = generateDynamicHelmValues(options, logger);
+        logger.info(
+          "Generating dynamic Helm chart values with Kubernetes secrets enabled"
+        );
+
+        const dynamicHelmValues = generateDynamicHelmValues(
+          options,
+          logger
+        );
 
         // Merge with tier-based values if applicable
         let finalHelmValues = dynamicHelmValues;

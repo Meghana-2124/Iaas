@@ -624,12 +624,12 @@ export function generateDynamicHelmValues(
   // Add Kubernetes secrets configuration
   const kubernetesSecrets = {
     rafikiAuth: {
-      create: options.createKubernetesSecrets ?? false,
+      create: options.createKubernetesSecrets ?? true,
       name: `${options.companyName}-rafiki-auth-secret`,
       stringData: {}, // Will be populated by secrets manager
     },
     rafikiBackend: {
-      create: options.createKubernetesSecrets ?? false,
+      create: options.createKubernetesSecrets ?? true,
       name: `${options.companyName}-rafiki-backend-secret`,
       stringData: {}, // Will be populated by secrets manager
     },
