@@ -5,7 +5,6 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { addTierCommands } from "./tier-commands.js";
 import { Logger } from "../types/index.js";
-import { PlanTier } from "../types/plans.js";
 
 // Simple console logger for CLI
 const consoleLogger: Logger = {

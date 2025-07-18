@@ -171,7 +171,7 @@ export async function executeDeploymentAction(
       logger.info(`Fetching outputs for stack: ${stackName}...`);
       const outputs = await stack.outputs();
       logger.info("--- Stack Outputs ---");
-      logger.debug("Outputs:", JSON.stringify(outputs, null, 2));
+      logger.info("Outputs:", JSON.stringify(outputs, null, 2));
 
       return {
         outputs: outputs,
