@@ -52,5 +52,6 @@ config/gcp-new.json
 service-account*.json
 
 Pulumi.*.yaml
-kubeconfig.yaml
+*kubeconfig.yaml
 gke_gcloud_auth_plugin_cache
+

@@ -5,7 +5,6 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { addTierCommands } from "./tier-commands.js";
 import { Logger } from "../types/index.js";
-import { PlanTier } from "../types/plans.js";
 
 // Simple console logger for CLI
 const consoleLogger: Logger = {
@@ -136,7 +135,7 @@ async function main() {
             type: "string",
             required: true,
           })
-         .option("connectorDomain", {
+          .option("connectorDomain", {
             describe:
               "Domain for the connector service (e.g., 'ilp-connector.example.com')",
             type: "string",
@@ -222,10 +221,24 @@ async function main() {
             type: "string",
             default: "ingress-nginx",
           })
+          .option("pulumiPassphrase", {
+            describe: "Passphrase for Pulumi state encryption",
+            type: "string",
+            default: "pulumi-passphrase",
+          })
           .help(),
       async (args: any) => {
         // Add logger to args for tier commands
         args.logger = consoleLogger;
+
+        // Set PULUMI_CONFIG_PASSPHRASE environment variable
+        if (!process.env.PULUMI_CONFIG_PASSPHRASE) {
+          process.env.PULUMI_CONFIG_PASSPHRASE =
+            args.pulumiPassphrase || "pulumi-passphrase";
+          consoleLogger.info(
+            `Using Pulumi passphrase: ${process.env.PULUMI_CONFIG_PASSPHRASE}`
+          );
+        }
 
         // Prefer file input if provided
         let secretsJson = args.secretsJson || "{}"; // Default to empty JSON if not provided
@@ -277,7 +290,7 @@ async function main() {
           deploymentType: args.deploymentType as "shared" | "dedicated",
           planTier: args.planTier as any,
           // Dynamic Helm values configuration
-          defaultDomain: args.defaultDomain,  
+          defaultDomain: args.defaultDomain,
           authDomain: args.authDomain,
           openPaymentsDomain: args.openPaymentsDomain,
           connectorDomain: args.connectorDomain,

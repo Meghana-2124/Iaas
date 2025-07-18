@@ -22,6 +22,9 @@ interface HelmChartValues {
     };
     hpa?: {
       enabled: boolean;
+      minReplicas?: number;
+      maxReplicas?: number;
+      targetCPUUtilizationPercentage?: number;
     };
     ports: {
       main: number; // Main service port
@@ -51,6 +54,9 @@ interface HelmChartValues {
     };
     hpa?: {
       enabled: boolean;
+      minReplicas?: number;
+      maxReplicas?: number;
+      targetCPUUtilizationPercentage?: number;
     };
     ports: {
       openPayments: number;
@@ -84,6 +90,9 @@ interface HelmChartValues {
     };
     hpa?: {
       enabled: boolean;
+      minReplicas?: number;
+      maxReplicas?: number;
+      targetCPUUtilizationPercentage?: number;
     };
     ports: {
       http: number; // HTTP port
@@ -162,53 +171,17 @@ interface HelmChartValues {
     };
   };
 
-  tierConfig?: {
-    basic?: {
-      cpu: string;
-      memory: string;
-      storage: string;
-      maxReplicas: number;
-    };
-    standard?: {
-      cpu: string;
-      memory: string;
-      storage: string;
-      maxReplicas: number;
-    };
-    premium?: {
-      cpu: string;
-      memory: string;
-      storage: string;
-      maxReplicas: number;
-    };
-    enterprise?: {
-      cpu: string;
-      memory: string;
-      storage: string;
-      maxReplicas: number;
-    };
-  };
-
+  // Tier-specific configurations (only for shared deployments)
+  tierConfig?: Record<string, any>;
   tierResources?: {
-    cpu: string;
-    memory: string;
+    cpu?: string;
+    memory?: string;
   };
-
   tierResourceQuota?: {
-    enabled: boolean;
-    requests: {
-      cpu: string;
-      memory: string;
-      storage: string;
-    };
-    limits: {
-      cpu: string;
-      memory: string;
-      storage: string;
-    };
-    claims: {
-      "persistent-volume-claims": string;
-    };
+    enabled?: boolean;
+    requests?: Record<string, string>;
+    limits?: Record<string, string>;
+    claims?: Record<string, string>;
   };
 
   gcp?: {
@@ -276,7 +249,14 @@ export function generateDynamicHelmValues(
     companyName: options.companyName,
     namespace: options.namespace,
     deploymentType: options.deploymentType,
-    planTier: options.planTier,
+    // Only set planTier for shared deployments or if explicitly provided
+    ...(options.deploymentType === "shared" || options.planTier
+      ? {
+          planTier:
+            options.planTier ||
+            (options.deploymentType === "shared" ? "basic" : undefined),
+        }
+      : {}),
 
     rafikiAuth: {
       enabled: options.enableRafikiAuth ?? true,
@@ -387,7 +367,7 @@ export function generateDynamicHelmValues(
       className: options.ingressClassName ?? "gce",
       annotations: {},
       hosts: {
-        [getHostPrefix(openPaymentsHostname, defaultDomain)]: {
+        ilp: {
           host: openPaymentsHostname,
           paths: [
             {
@@ -398,7 +378,7 @@ export function generateDynamicHelmValues(
             },
           ],
         },
-        [getHostPrefix(authHostname, defaultDomain)]: {
+        auth: {
           host: authHostname,
           paths: [
             {
@@ -409,7 +389,7 @@ export function generateDynamicHelmValues(
             },
           ],
         },
-        [getHostPrefix(connectorHostname, defaultDomain)]: {
+        connector: {
           host: connectorHostname,
           paths: [
             {
@@ -449,9 +429,24 @@ export function generateDynamicHelmValues(
     const hpaEnabled = options.dedicatedDeploymentHpaEnabledByDefault ?? true;
     if (hpaEnabled) {
       logger.info("Enabling HPA for dedicated deployment components");
-      helmValues.rafikiAuth.hpa = { enabled: true };
-      helmValues.rafikiBackend.hpa = { enabled: true };
-      helmValues.nginx.hpa = { enabled: true };
+      helmValues.rafikiAuth.hpa = {
+        enabled: true,
+        minReplicas: 1,
+        maxReplicas: 5,
+        targetCPUUtilizationPercentage: 80,
+      };
+      helmValues.rafikiBackend.hpa = {
+        enabled: true,
+        minReplicas: 1,
+        maxReplicas: 5,
+        targetCPUUtilizationPercentage: 80,
+      };
+      helmValues.nginx.hpa = {
+        enabled: true,
+        minReplicas: 1,
+        maxReplicas: 5,
+        targetCPUUtilizationPercentage: 80,
+      };
     }
   }
 
@@ -492,10 +487,6 @@ export function generateDynamicHelmValues(
     helmValues.networkPolicy = { enabled: false };
   }
 
-  // Initialize tier calculator for monitoring and resource calculations
-  const tierCalculator = new TierCalculator(logger);
-  const tier = (options.planTier as PlanTier) || PlanTier.BASIC;
-
   // Add monitoring dashboard configuration
   const monitoring = {
     dashboards: {
@@ -505,40 +496,96 @@ export function generateDynamicHelmValues(
     },
   };
 
-  // Add tier configuration for monitoring dashboards
-  // Tier configuration based on PlanTier
-  const tierConfig = {
-    basic: {
-      cpu: "2",
-      memory: "4Gi",
-      storage: "20Gi",
-      maxReplicas: 2,
-    },
-    standard: {
-      cpu: "8", 
-      memory: "16Gi",
-      storage: "100Gi",
-      maxReplicas: 5,
-    },
-    premium: {
-      cpu: "32",
-      memory: "64Gi", 
-      storage: "500Gi",
-      maxReplicas: 10,
-    },
-    enterprise: {
-      cpu: "128",
-      memory: "256Gi",
-      storage: "2Ti",
-      maxReplicas: 50,
-    },
-  };
+  // Tier-specific configurations (only for shared deployments)
+  let tierConfig = {};
+  let tierResources = {};
+  let tierResourceQuota = {};
 
-  // Add tier resources for monitoring dashboards
-  const tierResources = {
-    cpu: tierCalculator.getTierCpuLimits(tier),
-    memory: tierCalculator.getTierMemoryLimits(tier),
-  };
+  if (options.deploymentType === "shared") {
+    // Initialize tier calculator for monitoring and resource calculations
+    const tierCalculator = new TierCalculator(logger);
+    const tier = (options.planTier as PlanTier) || PlanTier.BASIC;
+
+    // Add tier configuration for monitoring dashboards
+    tierConfig = {
+      basic: {
+        cpu: "2",
+        memory: "4Gi",
+        storage: "20Gi",
+        maxReplicas: 2,
+      },
+      standard: {
+        cpu: "8",
+        memory: "16Gi",
+        storage: "100Gi",
+        maxReplicas: 5,
+      },
+      premium: {
+        cpu: "32",
+        memory: "64Gi",
+        storage: "500Gi",
+        maxReplicas: 10,
+      },
+      enterprise: {
+        cpu: "128",
+        memory: "256Gi",
+        storage: "2Ti",
+        maxReplicas: 50,
+      },
+    };
+
+    // Add tier resources for monitoring dashboards
+    tierResources = {
+      cpu: tierCalculator.getTierCpuLimits(tier),
+      memory: tierCalculator.getTierMemoryLimits(tier),
+    };
+
+    // Add resource quota configuration for shared deployments
+    tierResourceQuota = {
+      enabled: true,
+      requests: {
+        cpu: tierCalculator.getTierResourceQuota(tier, "cpu", "requests"),
+        memory: tierCalculator.getTierResourceQuota(tier, "memory", "requests"),
+        storage: tierCalculator.getTierResourceQuota(
+          tier,
+          "storage",
+          "requests"
+        ),
+      },
+      limits: {
+        cpu: tierCalculator.getTierResourceQuota(tier, "cpu", "limits"),
+        memory: tierCalculator.getTierResourceQuota(tier, "memory", "limits"),
+        storage: tierCalculator.getTierResourceQuota(tier, "storage", "limits"),
+      },
+      claims: {
+        "persistent-volume-claims": tierCalculator.getTierResourceQuota(
+          tier,
+          "storage",
+          "claims"
+        ),
+      },
+    };
+  } else {
+    // For dedicated deployments, disable tier-based resource quotas and provide basic monitoring defaults
+    tierResourceQuota = {
+      enabled: false,
+    };
+
+    // Set basic defaults for monitoring dashboards for dedicated deployments
+    tierResources = {
+      cpu: "4", // Default CPU limit for dedicated
+      memory: "8Gi", // Default memory limit for dedicated
+    };
+
+    tierConfig = {
+      default: {
+        cpu: "4",
+        memory: "8Gi",
+        storage: "100Gi",
+        maxReplicas: 3,
+      },
+    };
+  }
 
   // Add enhanced network policy configuration
   if (helmValues.networkPolicy && helmValues.networkPolicy.enabled) {
@@ -558,28 +605,6 @@ export function generateDynamicHelmValues(
       { port: 6379, protocol: "TCP" },
     ];
   }
-
-  // Add resource quota configuration for shared deployments
-  const tierResourceQuota = {
-    enabled: options.deploymentType === "shared",
-    requests: {
-      cpu: tierCalculator.getTierResourceQuota(tier, "cpu", "requests"),
-      memory: tierCalculator.getTierResourceQuota(tier, "memory", "requests"),
-      storage: tierCalculator.getTierResourceQuota(tier, "storage", "requests"),
-    },
-    limits: {
-      cpu: tierCalculator.getTierResourceQuota(tier, "cpu", "limits"),
-      memory: tierCalculator.getTierResourceQuota(tier, "memory", "limits"),
-      storage: tierCalculator.getTierResourceQuota(tier, "storage", "limits"),
-    },
-    claims: {
-      "persistent-volume-claims": tierCalculator.getTierResourceQuota(
-        tier,
-        "storage",
-        "claims"
-      ),
-    },
-  };
 
   // Add cloud-specific configurations
   const gcp = {
@@ -623,13 +648,13 @@ export function generateDynamicHelmValues(
   // Add Kubernetes secrets configuration
   const kubernetesSecrets = {
     rafikiAuth: {
-      create: options.createKubernetesSecrets ?? false,
-      name: `${options.companyName}-rafiki-auth-secret`,
+      create: options.createKubernetesSecrets ?? true,
+      name: "rafiki-auth-secrets",
       stringData: {}, // Will be populated by secrets manager
     },
     rafikiBackend: {
-      create: options.createKubernetesSecrets ?? false,
-      name: `${options.companyName}-rafiki-backend-secret`,
+      create: options.createKubernetesSecrets ?? true,
+      name: "rafiki-backend-secrets",
       stringData: {}, // Will be populated by secrets manager
     },
   };

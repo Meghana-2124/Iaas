@@ -1,5 +1,4 @@
 {{- if eq .Values.deploymentType "shared" }}
-{{- if .Values.planTier }}
 apiVersion: v1
 kind: LimitRange
 metadata:
@@ -7,39 +6,58 @@ metadata:
   namespace: {{ include "iaas-rafiki.namespace" . }}
   labels:
     {{- include "iaas-rafiki.enhancedLabels" . | nindent 4 }}
+    {{- if .Values.planTier }}
     iaas.deployment/tier: {{ .Values.planTier }}
+    {{- end }}
     iaas.deployment/type: shared
 spec:
   limits:
     # Pod-level limits
     - type: Pod
       max:
-        cpu: {{ index .Values.planTier "limits" "cpu" | default "2000m" }}
-        memory: {{ index .Values.planTier "limits" "memory" | default "4Gi" }}
+        {{- if .Values.tierResourceQuota }}
+        cpu: {{ .Values.tierResourceQuota.limits.cpu | default "2000m" }}
+        memory: {{ .Values.tierResourceQuota.limits.memory | default "4Gi" }}
+        {{- else }}
+        cpu: "2000m"
+        memory: "4Gi"
+        {{- end }}
       min:
         cpu: "100m"
         memory: "128Mi"
     # Container-level limits
     - type: Container
       max:
-        cpu: {{ index .Values.planTier "limits" "cpu" | default "2000m" }}
-        memory: {{ index .Values.planTier "limits" "memory" | default "4Gi" }}
+        {{- if .Values.tierResourceQuota }}
+        cpu: {{ .Values.tierResourceQuota.limits.cpu | default "2000m" }}
+        memory: {{ .Values.tierResourceQuota.limits.memory | default "4Gi" }}
+        {{- else }}
+        cpu: "2000m"
+        memory: "4Gi"
+        {{- end }}
       min:
         cpu: "100m"
         memory: "128Mi"
       default:
-        cpu: {{ index .Values.planTier "requests" "cpu" | default "500m" }}
-        memory: {{ index .Values.planTier "requests" "memory" | default "1Gi" }}
+        {{- if .Values.tierResourceQuota }}
+        cpu: {{ .Values.tierResourceQuota.requests.cpu | default "500m" }}
+        memory: {{ .Values.tierResourceQuota.requests.memory | default "1Gi" }}
+        {{- else }}
+        cpu: "500m"
+        memory: "1Gi"
+        {{- end }}
       defaultRequest:
-        cpu: {{ index .Values.planTier "requests" "cpu" | default "500m" }}
-        memory: {{ index .Values.planTier "requests" "memory" | default "1Gi" }}
+        {{- if .Values.tierResourceQuota }}
+        cpu: {{ .Values.tierResourceQuota.requests.cpu | default "500m" }}
+        memory: {{ .Values.tierResourceQuota.requests.memory | default "1Gi" }}
+        {{- else }}
+        cpu: "500m"
+        memory: "1Gi"
+        {{- end }}
     # PVC limits for persistent storage
-    {{- if index .Values.planTier "storage" }}
     - type: PersistentVolumeClaim
       max:
-        storage: {{ index .Values.planTier "storage" "max" | default "20Gi" }}
+        storage: "20Gi"
       min:
         storage: "1Gi"
-    {{- end }}
-{{- end }}
 {{- end }}

@@ -11,7 +11,9 @@ metadata:
   labels:
     app.kubernetes.io/name: tier-monitoring
     app.kubernetes.io/instance: {{ .Release.Name }}
-    iaas.deployment/tier: {{ .Values.planTier | default "basic" }}
+    {{- if .Values.planTier }}
+    iaas.deployment/tier: {{ .Values.planTier }}
+    {{- end }}
     iaas.deployment/component: monitoring
     grafana_dashboard: "1"
 data:
@@ -20,7 +22,7 @@ data:
       "dashboard": {
         "id": null,
         "title": "Tier-Based Resource Allocation - {{ .Values.companyName }}",
-        "tags": ["iaas", "tier", "resources", "{{ .Values.planTier }}"],
+        "tags": ["iaas", "tier", "resources", "{{ .Values.planTier | default "default" }}"],
         "style": "dark",
         "timezone": "UTC",
         "refresh": "30s",
@@ -31,7 +33,7 @@ data:
         "panels": [
           {
             "id": 1,
-            "title": "Current Tier: {{ .Values.planTier | upper }}",
+            "title": "Current Tier: {{ .Values.planTier | default "DEFAULT" | upper }}",
             "type": "stat",
             "targets": [],
             "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
@@ -115,7 +117,7 @@ data:
                   ]
                 },
                 "unit": "short",
-                "max": {{ .Values.tierResources.cpu | default "1" }},
+                "max": 4,
                 "min": 0
               },
               "overrides": []
@@ -168,7 +170,7 @@ data:
                   ]
                 },
                 "unit": "percentunit",
-                "max": {{ .Values.tierResources.cpu | default "1" }}
+                "max": 4
               },
               "overrides": []
             }
@@ -220,7 +222,7 @@ data:
                   ]
                 },
                 "unit": "decbytes",
-                "max": {{ .Values.tierResources.memory | regexReplaceAll "Gi" "" | default "2" }}
+                "max": 8
               },
               "overrides": []
             }
@@ -351,8 +353,8 @@ data:
               "name": "tier",
               "type": "constant",
               "current": {
-                "value": "{{ .Values.planTier }}",
-                "text": "{{ .Values.planTier }}"
+                "value": "{{ .Values.planTier | default "default" }}",
+                "text": "{{ .Values.planTier | default "default" }}"
               }
             },
             {
@@ -389,7 +391,9 @@ metadata:
   labels:
     app.kubernetes.io/name: tier-alerts
     app.kubernetes.io/instance: {{ .Release.Name }}
-    iaas.deployment/tier: {{ .Values.planTier | default "basic" }}
+    {{- if .Values.planTier }}
+    iaas.deployment/tier: {{ .Values.planTier }}
+    {{- end }}
     iaas.deployment/component: monitoring
     grafana_dashboard: "1"
 data:
@@ -398,7 +402,7 @@ data:
       "dashboard": {
         "id": null,
         "title": "Tier Resource Monitoring - {{ .Values.companyName }}",
-        "tags": ["iaas", "alerts", "resources", "{{ .Values.planTier }}"],
+        "tags": ["iaas", "alerts", "resources", "{{ .Values.planTier | default "default" }}"],
         "style": "dark",
         "timezone": "UTC",
         "refresh": "1m",
@@ -413,7 +417,7 @@ data:
             "type": "stat",
             "targets": [
               {
-                "expr": "(sum(rate(container_cpu_usage_seconds_total{namespace=\"{{ .Values.namespace }}\"}[5m])) / {{ .Values.tierResources.cpu | default "1" | regexReplaceAll "m" "" | div 1000 }}) * 100",
+                "expr": "(sum(rate(container_cpu_usage_seconds_total{namespace=\"{{ .Values.namespace }}\"}[5m])) / 2) * 100",
                 "refId": "A"
               }
             ],
@@ -445,7 +449,7 @@ data:
             "type": "table",
             "targets": [
               {
-                "expr": "ALERTS{tier=\"{{ .Values.planTier }}\",company=\"{{ .Values.companyName }}\",alertstate=\"firing\"}",
+                "expr": "ALERTS{tier=\"{{ .Values.planTier | default "default" }}\",company=\"{{ .Values.companyName }}\",alertstate=\"firing\"}",
                 "format": "table",
                 "refId": "A"
               }
