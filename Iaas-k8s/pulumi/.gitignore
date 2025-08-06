@@ -55,3 +55,6 @@ Pulumi.*.yaml
 *kubeconfig.yaml
 gke_gcloud_auth_plugin_cache
 
+config/gcp/
+config/aws/
+config/gcp-*

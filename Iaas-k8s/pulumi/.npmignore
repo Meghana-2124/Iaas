@@ -23,3 +23,7 @@ tests/
 
 # Documentation (except README)
 docs/
+
+config/gcp/
+config/aws/
+config/gcp-*
