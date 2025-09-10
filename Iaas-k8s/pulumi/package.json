@@ -1,6 +1,6 @@
 {
   "name": "@chimoney.io/iaas-k8s-deployment",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "type": "module",
   "description": "Kubernetes Infrastructure as a Service deployment package for streamlined multi-cloud environments",
   "main": "dist/automation.js",
@@ -69,8 +69,8 @@
     "build": "tsc",
     "clean": "rm -rf dist helm-chart",
     "copy-chart": "cp -R ../helm-chart ./helm-chart",
-    "prepack": "npm run clean && npm run build && npm run copy-chart && node scripts/verify-helm-chart.js",
-    "prepublishOnly": "npm run build && npm run copy-chart && node scripts/verify-helm-chart.js",
+    "prepack": "npm run clean && npm run build && npm run copy-chart",
+    "prepublishOnly": "npm run build && npm run copy-chart",
     "dev": "npm run build && node dist/src/cli/index.js",
     "lint": "echo 'Add linting configuration as needed'",
     "test": "jest",

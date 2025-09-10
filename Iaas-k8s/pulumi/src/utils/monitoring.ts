@@ -228,6 +228,10 @@ export class DeploymentMonitor {
     try {
       const fs = await import("fs");
       const path = await import("path");
+      const { fileURLToPath } = await import("url");
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+
       // Expect a bundled helm-chart directory shipped with the package.
       const packagedChart = path.resolve(__dirname, "../../..", "helm-chart");
       const monorepoChart = path.resolve(
