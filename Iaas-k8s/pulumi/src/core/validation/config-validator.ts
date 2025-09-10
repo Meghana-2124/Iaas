@@ -70,14 +70,5 @@ export function validateDeploymentConfig(
     }
   }
 
-  // Validate Helm chart path if provided
-  if (config.helmChartPath && typeof config.helmChartPath !== "string") {
-    errors.push({
-      field: "helmChartPath",
-      message: "Helm chart path must be a string",
-      value: config.helmChartPath,
-    });
-  }
-
   return errors;
 }

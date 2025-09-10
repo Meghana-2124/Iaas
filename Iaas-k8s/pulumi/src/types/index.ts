@@ -40,7 +40,6 @@ export interface DeploymentOptions {
   secretsJson: string;
   companyName: string;
   workDir?: string;
-  helmChartPath?: string;
   logLevel?: LogLevel;
   onProgress?: (progress: DeploymentProgress) => void;
   validateConfig?: boolean;
@@ -165,7 +164,6 @@ export interface DeploymentConfig {
   secretsJson: string;
   companyName: string;
   cloudProvider?: "aws" | "gcp";
-  helmChartPath?: string;
   cloudConfig?: CloudConfig;
   namespace?: string;
   deploymentType?: "shared" | "dedicated";

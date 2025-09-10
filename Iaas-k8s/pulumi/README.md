@@ -247,6 +247,7 @@ The package now uses **dynamic value generation** with minimal configuration req
 2. **deploymentType**: 'dedicated' (default) or 'shared'
 3. **namespace**: Kubernetes namespace (auto-generated for shared deployments)
 4. **planTier**: Resource tier for shared deployments ('basic', 'standard', 'premium')
+5. (Removed) Custom Helm chart path option eliminated; bundled chart always used.
 
 ### Dynamic Configuration Options
 
@@ -280,6 +281,7 @@ The package now automatically generates comprehensive Helm values based on your 
    - **Shared**: Configures network policies for security isolation
 4. **Tier Integration**: Merges resource allocations for shared deployments
 5. **User Overrides**: Applies any custom values from `--valuesFile`
+6. Custom chart override removed: the bundled internal chart is always used and auto-detected.
 
 ### Generated Configuration Includes
 
@@ -320,6 +322,10 @@ Use `--valuesFile` only when you need to:
 - Customize resource limits beyond tier defaults
 - Add custom ingress annotations
 - Configure additional services or sidecars
+
+### Helm Chart Path Simplification
+
+All deployments now always use the bundled Helm chart (`pulumi/../helm-chart`). Previous override mechanisms have been removed to ensure consistency.
 
 ## Return Values
 

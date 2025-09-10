@@ -98,8 +98,6 @@ export const DeploymentConfigSchema = z.object({
 
   cloudProvider: z.enum(["aws", "gcp"]).optional(),
 
-  helmChartPath: z.string().optional(),
-
   namespace: NamespaceSchema.optional(),
 
   deploymentType: DeploymentTypeSchema.optional(),
@@ -135,7 +133,6 @@ export const DeploymentOptionsSchema = z.object({
     ),
 
   workDir: z.string().optional(),
-  helmChartPath: z.string().optional(),
   logLevel: LogLevelSchema.optional(),
   validateConfig: z.boolean().optional(),
   enableRollback: z.boolean().optional(),

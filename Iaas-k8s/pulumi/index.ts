@@ -3,6 +3,7 @@ import * as gcpInfra from "./src/core/gcp-infra.js";
 import * as pulumi from "@pulumi/pulumi";
 import * as k8s from "@pulumi/kubernetes";
 import * as path from "path";
+import * as fs from "fs";
 import { fileURLToPath } from "url";
 
 // Define __filename and __dirname for ES module scope
@@ -190,9 +191,26 @@ setupInfrastructure();
 
 // Deploy helm chart and create resources based on infrastructure setup
 const deploymentOutputs = pulumi.output(cluster).apply((clusterData: any) => {
-  // Prepare Helm values
-  const defaultChartPath = path.join(__dirname, "../..", "helm-chart");
-  const chartPathDir = process.env.HELM_CHART_PATH || defaultChartPath;
+  // Prepare Helm values and resolve bundled chart path only
+  // Resolve bundled Helm chart path. Packaged layout: <pkgRoot>/dist (this file), <pkgRoot>/helm-chart
+  // Use top-level monorepo helm-chart during development; during publish it's copied beside dist.
+  const packagedChart = path.resolve(__dirname, "..", "helm-chart");
+  const monorepoChart = path.resolve(__dirname, "../..", "helm-chart");
+  const chartCandidates = [packagedChart, monorepoChart];
+  let resolvedChartPath: string | undefined;
+  for (const candidate of chartCandidates) {
+    if (fs.existsSync(path.join(candidate, "Chart.yaml"))) {
+      resolvedChartPath = candidate;
+      break;
+    }
+  }
+  if (!resolvedChartPath) {
+    throw new Error(
+      `Bundled Helm chart missing. Checked: ${chartCandidates.join(", ")}`
+    );
+  }
+  const chartYaml = path.join(resolvedChartPath, "Chart.yaml");
+  pulumi.log.info(`Using bundled Helm chart at ${resolvedChartPath}`);
   const mergedChartValues = loadAndMergeValues(helmSecretsJson, helmValuesJson);
 
   // Set default nginx HPA configuration
@@ -275,7 +293,7 @@ const deploymentOutputs = pulumi.output(cluster).apply((clusterData: any) => {
   const iaasRafikiChart = new k8s.helm.v3.Chart(
     helmReleaseName,
     {
-      path: chartPathDir,
+      path: resolvedChartPath,
       values: mergedChartValues,
       namespace: namespace || "default", // Use specified namespace or default
     },

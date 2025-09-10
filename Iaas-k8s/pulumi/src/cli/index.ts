@@ -71,10 +71,6 @@ async function main() {
             type: "boolean",
             default: false,
           })
-          .option("helmChartPath", {
-            describe: "Path to custom Helm chart",
-            type: "string",
-          })
           .option("logLevel", {
             describe: "Log level",
             type: "string",
@@ -281,7 +277,7 @@ async function main() {
           cloudProvider: args.cloudProvider as any,
           cloudConfig,
           autoSetupConfig: args.autoSetupConfig,
-          helmChartPath: args.helmChartPath,
+          // helmChartPath removed (always bundled)
           logLevel: args.logLevel as any,
           validateConfig: args.validateConfig,
           enableRollback: args.enableRollback,

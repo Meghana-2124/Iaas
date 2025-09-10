@@ -48,7 +48,6 @@ export async function handleDeployment(
     secretsJson,
     companyName, // This will be used as the organization
     workDir,
-    helmChartPath,
     logLevel = "info",
     onProgress,
     validateConfig = true,
@@ -102,7 +101,7 @@ export async function handleDeployment(
 
     // =============================================================================
     // Enhanced Configuration Validation
-    // =============================================================================
+    // helmChartPath removed
     if (validateConfig) {
       logger.debug(
         "Validating deployment configuration with enhanced validation"
@@ -240,7 +239,6 @@ export async function handleDeployment(
         stackName: fullyQualifiedStackName, // Use fully qualified name
         secretsJson,
         companyName,
-        helmChartPath,
       };
 
       const validationErrors = validateDeploymentConfig(config);
@@ -292,7 +290,6 @@ export async function handleDeployment(
         companyName,
         cloudConfig: options.cloudConfig,
         secretsJson,
-        helmChartPath,
       });
       logger.info("Pulumi config auto-setup complete.");
     }
@@ -345,16 +342,13 @@ export async function handleDeployment(
         logger.info(
           "Set helmSecretsJson configuration with processed secrets for stringData (as secret)"
         );
-    
+
         // Generate dynamic Helm values
         logger.info(
           "Generating dynamic Helm chart values with Kubernetes secrets enabled"
         );
 
-        const dynamicHelmValues = generateDynamicHelmValues(
-          options,
-          logger
-        );
+        const dynamicHelmValues = generateDynamicHelmValues(options, logger);
 
         // Merge with tier-based values if applicable
         let finalHelmValues = dynamicHelmValues;
@@ -388,10 +382,7 @@ export async function handleDeployment(
         }
 
         // Set Helm chart path if provided
-        if (helmChartPath) {
-          await stack!.setConfig("helmChartPath", { value: helmChartPath });
-          logger.info("Set helmChartPath configuration");
-        }
+        // helmChartPath configuration removed
 
         // Set namespace and deployment type configuration
         const effectiveNamespace = namespace || options.namespace;

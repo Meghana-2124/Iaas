@@ -225,29 +225,36 @@ export class DeploymentMonitor {
   }
 
   private async checkHelmChart(): Promise<void> {
-    const helmChartPath = process.env.HELM_CHART_PATH || "../helm-chart";
-
     try {
       const fs = await import("fs");
       const path = await import("path");
-
-      const chartYamlPath = path.join(helmChartPath, "Chart.yaml");
-
-      if (fs.existsSync(chartYamlPath)) {
-        const chartContent = fs.readFileSync(chartYamlPath, "utf8");
-        this.addHealthCheck(
-          "helm-chart",
-          "healthy",
-          `Helm chart accessible at: ${helmChartPath}`,
-          { path: chartYamlPath }
-        );
-      } else {
-        this.addHealthCheck(
-          "helm-chart",
-          "unhealthy",
-          `Helm chart not found at: ${chartYamlPath}`
-        );
+      // Expect a bundled helm-chart directory shipped with the package.
+      const packagedChart = path.resolve(__dirname, "../../..", "helm-chart");
+      const monorepoChart = path.resolve(
+        __dirname,
+        "../../../..",
+        "helm-chart"
+      );
+      const candidates = [packagedChart, monorepoChart];
+      for (const p of candidates) {
+        const chartYaml = path.join(p, "Chart.yaml");
+        if (fs.existsSync(chartYaml)) {
+          this.addHealthCheck(
+            "helm-chart",
+            "healthy",
+            `Helm chart accessible at: ${p}`,
+            { path: chartYaml }
+          );
+          return;
+        }
       }
+      this.addHealthCheck(
+        "helm-chart",
+        "unhealthy",
+        `Bundled Helm chart not found at expected paths: ${candidates.join(
+          ", "
+        )}`
+      );
     } catch (error) {
       this.addHealthCheck(
         "helm-chart",
