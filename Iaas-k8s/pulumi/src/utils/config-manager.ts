@@ -13,7 +13,6 @@ export interface PulumiConfigSetup {
   companyName: string;
   cloudConfig: CloudConfig;
   secretsJson: string;
-  helmChartPath?: string;
 }
 
 export class PulumiConfigManager {
@@ -47,7 +46,7 @@ export class PulumiConfigManager {
       }
 
       // Set Helm configuration
-      await this.setHelmConfig(stack, options);
+      await this.setHelmConfig(stack, options); // Set Helm configuration (secrets only now)
 
       this.logger.info("✅ Pulumi configuration setup completed");
     } catch (error) {
@@ -219,9 +218,6 @@ export class PulumiConfigManager {
     });
     this.logger.debug("✓ Set Helm secrets configuration for stringData usage");
 
-    if (options.helmChartPath) {
-      await stack.setConfig("helmChartPath", { value: options.helmChartPath });
-      this.logger.debug(`✓ Set Helm chart path: ${options.helmChartPath}`);
-    }
+    // helmChartPath removed: always using bundled chart
   }
 }

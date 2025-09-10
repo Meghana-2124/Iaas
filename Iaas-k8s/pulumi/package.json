@@ -20,8 +20,7 @@
   },
   "files": [
     "dist/**/*",
-    "src/**/*.ts",
-    "*.ts",
+    "helm-chart/**/*",
     "README.md",
     "LICENSE"
   ],
@@ -68,9 +67,10 @@
   },
   "scripts": {
     "build": "tsc",
-    "clean": "rm -rf dist",
-    "prepack": "npm run clean && npm run build",
-    "prepublishOnly": "npm run build",
+    "clean": "rm -rf dist helm-chart",
+    "copy-chart": "cp -R ../helm-chart ./helm-chart",
+    "prepack": "npm run clean && npm run build && npm run copy-chart && node scripts/verify-helm-chart.js",
+    "prepublishOnly": "npm run build && npm run copy-chart && node scripts/verify-helm-chart.js",
     "dev": "npm run build && node dist/src/cli/index.js",
     "lint": "echo 'Add linting configuration as needed'",
     "test": "jest",

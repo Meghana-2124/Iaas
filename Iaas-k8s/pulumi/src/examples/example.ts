@@ -42,7 +42,7 @@ async function enhancedDeploymentExample() {
     validateConfig: true,
     enableRollback: true,
     timeout: 1800, // 30 minutes
-    helmChartPath: "../helm-chart", // Custom Helm chart path
+    // helmChartPath removed (bundled chart always used)
 
     // Progress callback to track deployment status
     onProgress: (progress: DeploymentProgress) => {
@@ -69,7 +69,6 @@ async function enhancedDeploymentExample() {
       stackName: options.stackName,
       secretsJson: options.secretsJson,
       companyName: options.companyName,
-      helmChartPath: options.helmChartPath,
     });
 
     if (validationErrors.length > 0) {
