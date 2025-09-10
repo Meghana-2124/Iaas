@@ -128,7 +128,7 @@ pulumi/
 ## Installation
 
 ```bash
-npm install @chimoney/iaas-k8s-deployment
+npm install @chimoney.io/iaas-k8s-deployment
 ```
 
 ## Prerequisites
@@ -145,7 +145,7 @@ npm install @chimoney/iaas-k8s-deployment
 import {
   handleDeployment,
   DeploymentOptions,
-} from "@chimoney/iaas-k8s-deployment";
+} from "@chimoney.io/iaas-k8s-deployment";
 
 const options: DeploymentOptions = {
   action: "up",
@@ -427,7 +427,7 @@ npm run build
 # Test locally
 npm link
 cd /path/to/test/project
-npm link @chimoney/iaas-k8s-deployment
+npm link @chimoney.io/iaas-k8s-deployment
 
 # Publish to npm
 npm publish

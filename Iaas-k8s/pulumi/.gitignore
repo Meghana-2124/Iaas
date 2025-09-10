@@ -58,3 +58,6 @@ gke_gcloud_auth_plugin_cache
 # Ignore copied helm chart (we use top-level repo helm-chart; copy only during publish)
 helm-chart/
 
+config/gcp/
+config/aws/
+config/gcp-*

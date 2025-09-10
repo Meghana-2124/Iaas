@@ -27,3 +27,6 @@ export {
   performRollback,
   handleDeployment,
 } from "./src/index.js";
+
+export * from "./src/core/aws-infra.js";
+export * from "./src/core/gcp-infra.js";

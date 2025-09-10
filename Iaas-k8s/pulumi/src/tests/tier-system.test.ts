@@ -234,7 +234,7 @@ describe("Tier-Based Resource Allocation System", () => {
     });
 
     it("should generate correct dashboard URLs", () => {
-      const dashboardUrl = kubecostClient.getDashboardUrl("");
+      const dashboardUrl = kubecostClient.getDashboardUrl("test_namespace");
       expect(dashboardUrl).toBe("http://test-kubecost.local/allocation.html");
     });
   });

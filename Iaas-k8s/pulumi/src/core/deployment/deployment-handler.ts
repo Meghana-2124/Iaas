@@ -59,7 +59,7 @@ export async function handleDeployment(
   } = options;
 
   const projectName = "iaas-k8s";
-  const organizationName = "organization"; // Using "organization", needed for Pulumi LocalWorkspace
+  const organizationName = process.env.PULUMI_ORG_NAME || "organization"; // Using "organization", needed for Pulumi LocalWorkspace
 
   // Construct the fully qualified stack name based on deployment type
   let fullyQualifiedStackName: string;
