@@ -6,7 +6,9 @@ tsconfig.json
 # Development files
 .vscode/
 *.backup
-Pulumi.*.yaml
+Pulumi.dev.yaml
+Pulumi.staging.yaml
+Pulumi.production.yaml
 secrets.json
 values.json
 
