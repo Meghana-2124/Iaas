@@ -1,4 +1,6 @@
 import { automation } from "@pulumi/pulumi";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
 import {
   validateDeploymentOptionsWithZod,
   validateSecretsStructure,
@@ -256,7 +258,13 @@ export async function handleDeployment(
     // =============================================================================
     // Stack Initialization
     // =============================================================================
-    const resolvedWorkDir = workDir || process.cwd();
+    // Determine the correct working directory - use the npm package root
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    // Navigate to the package root where index.ts and Pulumi.yaml are located
+    const packageRoot = resolve(__dirname, "../../../");
+    const resolvedWorkDir = workDir || packageRoot;
+
     const projectSettings: automation.LocalProgramArgs = {
       stackName: fullyQualifiedStackName,
       workDir: resolvedWorkDir,
