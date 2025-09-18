@@ -110,6 +110,8 @@ function setupInfrastructure() {
       cluster = gcpInfra.createGkeCluster(`${companyName}-rafiki`, stack);
       k8sProvider = new k8s.Provider("k8s-provider-gcp", {
         kubeconfig: cluster.kubeconfig,
+        enableServerSideApply: true,
+        suppressDeprecationWarnings: true,
       });
       pulumi.log.info(
         "GCP GKE cluster deployment initiated for dedicated cluster."
@@ -177,6 +179,8 @@ function setupInfrastructure() {
 
       k8sProvider = new k8s.Provider("k8s-provider-gcp-shared", {
         kubeconfig: cluster.apply((c: any) => c.kubeconfig),
+        enableServerSideApply: true,
+        suppressDeprecationWarnings: true,
       });
     } else {
       throw new Error("Invalid cloudProvider. Must be 'aws' or 'gcp'.");

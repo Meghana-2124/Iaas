@@ -172,6 +172,9 @@ users:
       installHint: Install gke-gcloud-auth-plugin for use with kubectl by following
         https://cloud.google.com/blog/products/containers-kubernetes/kubectl-auth-changes-in-gke
       provideClusterInfo: true
+      env:
+      - name: USE_GKE_GCLOUD_AUTH_PLUGIN
+        value: "True"
 `;
       }
     );
