@@ -197,28 +197,9 @@ const deploymentOutputs = pulumi
         );
       }
     } else if (cloudProvider === "gcp") {
-      // For GCP, add authentication delay before creating the provider
-      // This ensures the cluster authentication has time to propagate
-      const authDelay = clusterData.kubeconfig.apply(
-        async (kubeconfigContent: string) => {
-          pulumi.log.info(
-            "Waiting for GKE cluster authentication to be ready..."
-          );
-
-          // Add a 2-minute delay to allow authentication to propagate
-          await new Promise((resolve) => setTimeout(resolve, 120000)); // 2 minutes
-
-          pulumi.log.info("GKE authentication verification completed");
-          return kubeconfigContent;
-        }
-      );
-
-      // For GCP, create provider with enhanced authentication after delay
+      // Simple GCP provider
       k8sProvider = new k8s.Provider("k8s-provider-gcp", {
-        kubeconfig: authDelay,
-        enableServerSideApply: true,
-        suppressDeprecationWarnings: true,
-        deleteUnreachable: true,
+        kubeconfig: clusterData.kubeconfig,
       });
     } else {
       throw new Error("Invalid cloudProvider. Must be 'aws' or 'gcp'.");
