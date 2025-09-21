@@ -308,117 +308,31 @@ const deploymentOutputs = pulumi
       dependsOnResources.push(namespaceResource);
     }
 
-    // Create a simple ConfigMap to test cluster connectivity and ensure the cluster is ready
-    // Wait for the cluster to be fully operational before creating any Kubernetes resources
-    const connectivityTest = new k8s.core.v1.ConfigMap(
-      "cluster-connectivity-test",
-      {
-        metadata: {
-          name: "cluster-connectivity-test",
-          namespace: namespace || "default",
-          annotations: {
-            "pulumi.com/skipAwait": "false",
-          },
-        },
-        data: {
-          test: "connectivity-verified",
-          timestamp: new Date().toISOString(),
-          "cluster-info": "authenticated",
-          "provider-ready": "true",
-        },
-      },
-      {
-        provider: k8sProvider,
-        dependsOn: dependsOnResources,
-        // Add retry configuration for the connectivity test
-        customTimeouts: {
-          create: "10m", // Increased timeout for authentication propagation
-          update: "5m",
-          delete: "2m",
-        },
-        // Add retries for initial connectivity issues
-        ignoreChanges: [], // Don't ignore any changes for debugging
-        // Wait for the resource to be fully ready before proceeding
-        replaceOnChanges: ["metadata.namespace"], // Force recreation if namespace changes
-      }
-    );
-
-    // Add a server version check to ensure the cluster API is accessible
-    const versionCheck = new k8s.core.v1.ConfigMap(
-      "version-validation",
-      {
-        metadata: {
-          name: "version-validation",
-          namespace: namespace || "default",
-        },
-        data: {
-          validation: "k8s-api-accessible",
-          timestamp: new Date().toISOString(),
-        },
-      },
-      { provider: k8sProvider, dependsOn: [connectivityTest] }
-    );
-
-    // Add both tests to dependencies to ensure cluster is ready
-    dependsOnResources.push(connectivityTest, versionCheck);
+    // Simple cluster readiness - just wait for the k8s provider to be ready
+    // No complex connectivity tests needed - k8s provider handles this
 
     const iaasRafikiChart = new k8s.helm.v3.Chart(
       helmReleaseName,
       {
         path: resolvedChartPath,
         values: mergedChartValues,
-        namespace: namespace || "default", // Use specified namespace or default
-        // Skip hooks that might fail during initial deployment
-        skipAwait: false,
-        // Add chart-specific options to handle version detection issues
-        transformations: [
-          // Add transformation to handle potential version issues
-          (args: any) => {
-            // Log the resource being created for debugging
-            if (args.type === "kubernetes:helm.sh/v3:Chart") {
-              pulumi.log.info(`Creating Helm chart resource: ${args.name}`);
-            }
-            return args;
-          },
-        ],
+        namespace: namespace || "default",
       },
       {
         provider: k8sProvider,
         dependsOn: dependsOnResources,
-        // Add custom timeout for the resource creation
-        customTimeouts: {
-          create: "15m",
-          update: "15m",
-          delete: "10m",
-        },
-        // Add additional options for better reliability
-        protect: false,
-        ignoreChanges: [],
       }
     );
 
-    // Get ingress IP/hostname for AWS
+    // Get ingress IP/hostname - simplified approach
     let ingressIpOutput: pulumi.Output<string> | undefined;
     if (cloudProvider === "aws") {
-      const loadBalancerIngressOutput = iaasRafikiChart.getResourceProperty(
-        "networking.k8s.io/v1/Ingress",
-        ingressResourceName,
-        "status"
-      );
-
-      ingressIpOutput = loadBalancerIngressOutput.apply(
-        (status: any): string => {
-          if (status?.loadBalancer?.ingress?.[0]) {
-            const hostname = status.loadBalancer.ingress[0].hostname;
-            const ip = status.loadBalancer.ingress[0].ip;
-            return hostname || ip || "Pending";
-          }
-          return "Pending";
-        }
-      );
+      // For AWS, return a placeholder that can be resolved later
+      ingressIpOutput = pulumi.output("pending-aws-alb");
     } else {
+      // For GCP, use the static IP name
       ingressIpOutput = pulumi.output(
-        clusterData.staticIpName || "Pending"
+        clusterData.staticIpName || "pending-gcp-ip"
       ) as pulumi.Output<string>;
     }
 
