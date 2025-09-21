@@ -155,7 +155,8 @@ export function createGkeCluster(name: string, stack: string) {
         zoneValue,
         nodePoolId,
       ]) => {
-        const context = `${projectValue}_${zoneValue}_${clusterNameValue}`;
+        // Use the standard GKE context naming convention: gke_project_zone_clustername
+        const context = `gke_${projectValue}_${zoneValue}_${clusterNameValue}`;
         // Generate kubeconfig with gke-gcloud-auth-plugin
         return `apiVersion: v1
 clusters:
@@ -183,7 +184,11 @@ users:
       - name: USE_GKE_GCLOUD_AUTH_PLUGIN
         value: "True"
       - name: GOOGLE_APPLICATION_CREDENTIALS
-        value: ${process.env.GOOGLE_APPLICATION_CREDENTIALS || ""}`;
+        value: ${process.env.GOOGLE_APPLICATION_CREDENTIALS || ""}
+      - name: CLOUDSDK_CORE_PROJECT
+        value: ${projectValue}
+      - name: CLOUDSDK_COMPUTE_ZONE
+        value: ${zoneValue}`;
       }
     );
 
@@ -247,11 +252,13 @@ export function lookupSharedGkeClusterSync(
             }
 
             // Generate kubeconfig for existing cluster
-            const context = `${configProject}_${zone}_${existingCluster.name}`;
+            const context = `gke_${configProject}_${zone}_${existingCluster.name}`;
             const kubeconfig = `apiVersion: v1
 clusters:
 - cluster:
-    certificate-authority-data: ${existingCluster.masterAuths?.[0]?.clusterCaCertificate}
+    certificate-authority-data: ${
+      existingCluster.masterAuths?.[0]?.clusterCaCertificate
+    }
     server: https://${existingCluster.endpoint}
   name: ${context}
 contexts:
@@ -272,7 +279,13 @@ users:
       provideClusterInfo: true
       env:
       - name: USE_GKE_GCLOUD_AUTH_PLUGIN
-        value: "True"`;
+        value: "True"
+      - name: GOOGLE_APPLICATION_CREDENTIALS
+        value: ${process.env.GOOGLE_APPLICATION_CREDENTIALS || ""}
+      - name: CLOUDSDK_CORE_PROJECT
+        value: ${configProject}
+      - name: CLOUDSDK_COMPUTE_ZONE
+        value: ${zone}`;
 
             return {
               exists: true,
@@ -286,11 +299,13 @@ users:
           })
           .catch(() => {
             // Static IP lookup failed but cluster exists
-            const context = `${configProject}_${zone}_${existingCluster.name}`;
+            const context = `gke_${configProject}_${zone}_${existingCluster.name}`;
             const kubeconfig = `apiVersion: v1
 clusters:
 - cluster:
-    certificate-authority-data: ${existingCluster.masterAuths?.[0]?.clusterCaCertificate}
+    certificate-authority-data: ${
+      existingCluster.masterAuths?.[0]?.clusterCaCertificate
+    }
     server: https://${existingCluster.endpoint}
   name: ${context}
 contexts:
@@ -311,7 +326,13 @@ users:
       provideClusterInfo: true
       env:
       - name: USE_GKE_GCLOUD_AUTH_PLUGIN
-        value: "True"`;
+        value: "True"
+      - name: GOOGLE_APPLICATION_CREDENTIALS
+        value: ${process.env.GOOGLE_APPLICATION_CREDENTIALS || ""}
+      - name: CLOUDSDK_CORE_PROJECT
+        value: ${configProject}
+      - name: CLOUDSDK_COMPUTE_ZONE
+        value: ${zone}`;
 
             return {
               exists: true,
@@ -392,11 +413,13 @@ export async function lookupSharedGkeCluster(
         }
 
         // Generate kubeconfig for existing cluster
-        const context = `${configProject}_${zone}_${existingCluster.name}`;
+        const context = `gke_${configProject}_${zone}_${existingCluster.name}`;
         const kubeconfig = `apiVersion: v1
 clusters:
 - cluster:
-    certificate-authority-data: ${existingCluster.masterAuths?.[0]?.clusterCaCertificate}
+    certificate-authority-data: ${
+      existingCluster.masterAuths?.[0]?.clusterCaCertificate
+    }
     server: https://${existingCluster.endpoint}
   name: ${context}
 contexts:
@@ -413,10 +436,17 @@ users:
     exec:
       apiVersion: client.authentication.k8s.io/v1beta1
       command: gke-gcloud-auth-plugin
-      installHint: Install gke-gcloud-auth-plugin for use with kubectl by following
-        https://cloud.google.com/blog/products/containers-kubernetes/kubectl-auth-changes-in-gke
+      installHint: Install gke-gcloud-auth-plugin for use with kubectl by following https://cloud.google.com/blog/products/containers-kubernetes/kubectl-auth-changes-in-gke
       provideClusterInfo: true
-`;
+      env:
+      - name: USE_GKE_GCLOUD_AUTH_PLUGIN
+        value: "True"
+      - name: GOOGLE_APPLICATION_CREDENTIALS
+        value: ${process.env.GOOGLE_APPLICATION_CREDENTIALS || ""}
+      - name: CLOUDSDK_CORE_PROJECT
+        value: ${configProject}
+      - name: CLOUDSDK_COMPUTE_ZONE
+        value: ${zone}`;
 
         return {
           exists: true,

@@ -203,7 +203,6 @@ const deploymentOutputs = pulumi
         enableServerSideApply: true,
         suppressDeprecationWarnings: true,
         deleteUnreachable: true,
-        context: `gke_${clusterData.gcpProject}_${clusterData.gcpZone}_${clusterData.clusterName}`,
       });
 
       // Add a specific delay for GKE authentication propagation
@@ -338,6 +337,12 @@ const deploymentOutputs = pulumi
       {
         provider: k8sProvider,
         dependsOn: dependsOnResources,
+        // Add retry configuration for the connectivity test
+        customTimeouts: {
+          create: "5m",
+          update: "5m",
+          delete: "2m",
+        },
       }
     );
 
