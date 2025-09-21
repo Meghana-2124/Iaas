@@ -71,7 +71,6 @@ function loadAndMergeValues(secretsJson?: string, valuesJson?: string): any {
 
 // Infrastructure setup based on deployment type
 let cluster: any;
-let k8sProvider: k8s.Provider;
 let dependsOnResources: any[] = [];
 
 function setupInfrastructure() {
@@ -79,42 +78,11 @@ function setupInfrastructure() {
     // For dedicated deployments, create a new cluster for this company
     if (cloudProvider === "aws") {
       cluster = awsInfra.createEksCluster(`${companyName}-rafiki`, stack);
-      k8sProvider = new k8s.Provider("k8s-provider-aws", {
-        kubeconfig: cluster.kubeconfig,
-      });
-
-      const awsLoadBalancerControllerChart = new k8s.helm.v3.Chart(
-        "aws-load-balancer-controller",
-        {
-          chart: "aws-load-balancer-controller",
-          version: "1.7.1",
-          namespace: "kube-system",
-          fetchOpts: {
-            repo: "https://aws.github.io/eks-charts",
-          },
-          values: {
-            clusterName: cluster.clusterName,
-            serviceAccount: {
-              create: true,
-              name: "aws-load-balancer-controller",
-            },
-          },
-        },
-        { provider: k8sProvider }
-      );
-      dependsOnResources.push(awsLoadBalancerControllerChart);
       pulumi.log.info(
-        "AWS Load Balancer Controller deployment initiated for dedicated cluster."
+        "AWS EKS cluster deployment initiated for dedicated cluster."
       );
     } else if (cloudProvider === "gcp") {
       cluster = gcpInfra.createGkeCluster(`${companyName}-rafiki`, stack);
-      k8sProvider = new k8s.Provider("k8s-provider-gcp", {
-        kubeconfig: cluster.kubeconfig,
-        enableServerSideApply: true,
-        suppressDeprecationWarnings: true,
-        // Add retry configuration for better reliability
-        deleteUnreachable: true,
-      });
       pulumi.log.info(
         "GCP GKE cluster deployment initiated for dedicated cluster."
       );
@@ -149,10 +117,7 @@ function setupInfrastructure() {
           return awsInfra.createEksCluster(sharedClusterName, stack);
         }
       });
-
-      k8sProvider = new k8s.Provider("k8s-provider-aws-shared", {
-        kubeconfig: cluster.apply((c: any) => c.kubeconfig),
-      });
+      pulumi.log.info("AWS EKS shared cluster lookup initiated.");
     } else if (cloudProvider === "gcp") {
       // Use the lookup function which returns a pulumi output
       const lookupResult =
@@ -178,12 +143,7 @@ function setupInfrastructure() {
           return gcpInfra.createGkeCluster(sharedClusterName, stack);
         }
       });
-
-      k8sProvider = new k8s.Provider("k8s-provider-gcp-shared", {
-        kubeconfig: cluster.apply((c: any) => c.kubeconfig),
-        enableServerSideApply: true,
-        suppressDeprecationWarnings: true,
-      });
+      pulumi.log.info("GCP GKE shared cluster lookup initiated.");
     } else {
       throw new Error("Invalid cloudProvider. Must be 'aws' or 'gcp'.");
     }
@@ -196,211 +156,278 @@ function setupInfrastructure() {
 setupInfrastructure();
 
 // Deploy helm chart and create resources based on infrastructure setup
-const deploymentOutputs = pulumi.output(cluster).apply((clusterData: any) => {
-  // Wait for cluster to be ready before proceeding with Helm deployment
-  // This ensures the cluster is fully operational before we try to deploy
+const deploymentOutputs = pulumi
+  .output(cluster)
+  .apply(async (clusterData: any) => {
+    // Wait for cluster to be ready before proceeding with Helm deployment
+    // This ensures the cluster is fully operational before we try to deploy
 
-  // Prepare Helm values and resolve bundled chart path only
-  // Resolve bundled Helm chart path. Packaged layout: <pkgRoot>/dist (this file), <pkgRoot>/helm-chart
-  // Use top-level monorepo helm-chart during development; during publish it's copied beside dist.
-  const packagedChart = path.resolve(__dirname, "..", "helm-chart");
-  const monorepoChart = path.resolve(__dirname, "../..", "helm-chart");
-  const chartCandidates = [packagedChart, monorepoChart];
-  let resolvedChartPath: string | undefined;
-  for (const candidate of chartCandidates) {
-    if (fs.existsSync(path.join(candidate, "Chart.yaml"))) {
-      resolvedChartPath = candidate;
-      break;
+    // Create Kubernetes provider here, after cluster is ready
+    let k8sProvider: k8s.Provider;
+
+    if (cloudProvider === "aws") {
+      k8sProvider = new k8s.Provider("k8s-provider-aws", {
+        kubeconfig: clusterData.kubeconfig,
+      });
+
+      // Create AWS Load Balancer Controller for dedicated clusters
+      if (deploymentType === "dedicated") {
+        const awsLoadBalancerControllerChart = new k8s.helm.v3.Chart(
+          "aws-load-balancer-controller",
+          {
+            chart: "aws-load-balancer-controller",
+            version: "1.7.1",
+            namespace: "kube-system",
+            fetchOpts: {
+              repo: "https://aws.github.io/eks-charts",
+            },
+            values: {
+              clusterName: clusterData.clusterName,
+              serviceAccount: {
+                create: true,
+                name: "aws-load-balancer-controller",
+              },
+            },
+          },
+          { provider: k8sProvider }
+        );
+        dependsOnResources.push(awsLoadBalancerControllerChart);
+        pulumi.log.info(
+          "AWS Load Balancer Controller deployment initiated for dedicated cluster."
+        );
+      }
+    } else if (cloudProvider === "gcp") {
+      // For GCP, create provider with enhanced authentication
+      k8sProvider = new k8s.Provider("k8s-provider-gcp", {
+        kubeconfig: clusterData.kubeconfig,
+        enableServerSideApply: true,
+        suppressDeprecationWarnings: true,
+        deleteUnreachable: true,
+        context: `gke_${clusterData.gcpProject}_${clusterData.gcpZone}_${clusterData.clusterName}`,
+      });
+
+      // Add a specific delay for GKE authentication propagation
+      // This is necessary because GKE clusters need time for authentication to be fully ready
+      pulumi.log.info("Waiting for GKE cluster authentication to be ready...");
+    } else {
+      throw new Error("Invalid cloudProvider. Must be 'aws' or 'gcp'.");
     }
-  }
-  if (!resolvedChartPath) {
-    throw new Error(
-      `Bundled Helm chart missing. Checked: ${chartCandidates.join(", ")}`
+
+    // Prepare Helm values and resolve bundled chart path only
+    // Resolve bundled Helm chart path. Packaged layout: <pkgRoot>/dist (this file), <pkgRoot>/helm-chart
+    // Use top-level monorepo helm-chart during development; during publish it's copied beside dist.
+    const packagedChart = path.resolve(__dirname, "..", "helm-chart");
+    const monorepoChart = path.resolve(__dirname, "../..", "helm-chart");
+    const chartCandidates = [packagedChart, monorepoChart];
+    let resolvedChartPath: string | undefined;
+    for (const candidate of chartCandidates) {
+      if (fs.existsSync(path.join(candidate, "Chart.yaml"))) {
+        resolvedChartPath = candidate;
+        break;
+      }
+    }
+    if (!resolvedChartPath) {
+      throw new Error(
+        `Bundled Helm chart missing. Checked: ${chartCandidates.join(", ")}`
+      );
+    }
+    const chartYaml = path.join(resolvedChartPath, "Chart.yaml");
+    pulumi.log.info(`Using bundled Helm chart at ${resolvedChartPath}`);
+    const mergedChartValues = loadAndMergeValues(
+      helmSecretsJson,
+      helmValuesJson
     );
-  }
-  const chartYaml = path.join(resolvedChartPath, "Chart.yaml");
-  pulumi.log.info(`Using bundled Helm chart at ${resolvedChartPath}`);
-  const mergedChartValues = loadAndMergeValues(helmSecretsJson, helmValuesJson);
 
-  // Set default nginx HPA configuration
-  if (!mergedChartValues.nginx) mergedChartValues.nginx = {};
-  if (!mergedChartValues.nginx.hpa) {
-    mergedChartValues.nginx.hpa = {
-      enabled: true,
-      minReplicas: 1,
-      maxReplicas: 5,
-      targetCPUUtilizationPercentage: 80,
-    };
-  }
+    // Set default nginx HPA configuration
+    if (!mergedChartValues.nginx) mergedChartValues.nginx = {};
+    if (!mergedChartValues.nginx.hpa) {
+      mergedChartValues.nginx.hpa = {
+        enabled: true,
+        minReplicas: 1,
+        maxReplicas: 5,
+        targetCPUUtilizationPercentage: 80,
+      };
+    }
 
-  // Optimize resource requests for better scheduling on smaller nodes
-  if (!mergedChartValues.rafikiAuth) mergedChartValues.rafikiAuth = {};
-  if (!mergedChartValues.rafikiAuth.enabled) {
-    mergedChartValues.rafikiAuth.enabled = true; // Ensure rafiki-auth is enabled
-  }
+    // Optimize resource requests for better scheduling on smaller nodes
+    if (!mergedChartValues.rafikiAuth) mergedChartValues.rafikiAuth = {};
+    if (!mergedChartValues.rafikiAuth.enabled) {
+      mergedChartValues.rafikiAuth.enabled = true; // Ensure rafiki-auth is enabled
+    }
 
-  if (!mergedChartValues.rafikiBackend) mergedChartValues.rafikiBackend = {};
-  if (!mergedChartValues.rafikiBackend.enabled) {
-    mergedChartValues.rafikiBackend.enabled = true; // Ensure rafiki-backend is enabled
-  }
+    if (!mergedChartValues.rafikiBackend) mergedChartValues.rafikiBackend = {};
+    if (!mergedChartValues.rafikiBackend.enabled) {
+      mergedChartValues.rafikiBackend.enabled = true; // Ensure rafiki-backend is enabled
+    }
 
-  mergedChartValues.companyName = companyName;
+    mergedChartValues.companyName = companyName;
 
-  // Set namespace and deployment type in chart values
-  if (namespace) {
-    mergedChartValues.namespace = namespace;
-  }
-  mergedChartValues.deploymentType = deploymentType;
+    // Set namespace and deployment type in chart values
+    if (namespace) {
+      mergedChartValues.namespace = namespace;
+    }
+    mergedChartValues.deploymentType = deploymentType;
 
-  // Configure GCP-specific ingress settings
-  if (cloudProvider === "gcp") {
-    if (!mergedChartValues.ingress) mergedChartValues.ingress = {};
-    if (!mergedChartValues.ingress.annotations)
-      mergedChartValues.ingress.annotations = {};
+    // Configure GCP-specific ingress settings
+    if (cloudProvider === "gcp") {
+      if (!mergedChartValues.ingress) mergedChartValues.ingress = {};
+      if (!mergedChartValues.ingress.annotations)
+        mergedChartValues.ingress.annotations = {};
 
-    // Set static IP annotation
-    mergedChartValues.ingress.annotations[
-      "kubernetes.io/ingress.global-static-ip-name"
-    ] = clusterData.staticIpName;
+      // Set static IP annotation
+      mergedChartValues.ingress.annotations[
+        "kubernetes.io/ingress.global-static-ip-name"
+      ] = clusterData.staticIpName;
 
-    // Allow HTTP traffic (required for GCP ingress when no TLS is configured)
-    mergedChartValues.ingress.annotations["kubernetes.io/ingress.allow-http"] =
-      "true";
+      // Allow HTTP traffic (required for GCP ingress when no TLS is configured)
+      mergedChartValues.ingress.annotations[
+        "kubernetes.io/ingress.allow-http"
+      ] = "true";
 
-    // Set ingress class for GCP
-    mergedChartValues.ingress.annotations["kubernetes.io/ingress.class"] =
-      "gce";
-  }
+      // Set ingress class for GCP
+      mergedChartValues.ingress.annotations["kubernetes.io/ingress.class"] =
+        "gce";
+    }
 
-  // Deploy Helm chart with namespace support
-  const helmReleaseName =
-    deploymentType === "shared" && namespace
-      ? `${namespace}-rafiki`
-      : `${companyName}-rafiki`;
-  const ingressResourceName = "rafiki-ingress";
+    // Deploy Helm chart with namespace support
+    const helmReleaseName =
+      deploymentType === "shared" && namespace
+        ? `${namespace}-rafiki`
+        : `${companyName}-rafiki`;
+    const ingressResourceName = "rafiki-ingress";
 
-  // Create namespace for shared deployments
-  let namespaceResource: k8s.core.v1.Namespace | undefined;
-  if (deploymentType === "shared" && namespace) {
-    namespaceResource = new k8s.core.v1.Namespace(
-      `namespace-${namespace}`,
-      {
-        metadata: {
-          name: namespace,
-          labels: {
-            "app.kubernetes.io/managed-by": "pulumi",
-            "iaas.deployment/type": deploymentType,
-            "iaas.deployment/company": companyName,
+    // Create namespace for shared deployments
+    let namespaceResource: k8s.core.v1.Namespace | undefined;
+    if (deploymentType === "shared" && namespace) {
+      namespaceResource = new k8s.core.v1.Namespace(
+        `namespace-${namespace}`,
+        {
+          metadata: {
+            name: namespace,
+            labels: {
+              "app.kubernetes.io/managed-by": "pulumi",
+              "iaas.deployment/type": deploymentType,
+              "iaas.deployment/company": companyName,
+            },
           },
         },
-      },
-      { provider: k8sProvider }
-    );
-    dependsOnResources.push(namespaceResource);
-  }
-
-  // Create a simple ConfigMap to test cluster connectivity and ensure the cluster is ready
-  const connectivityTest = new k8s.core.v1.ConfigMap(
-    "cluster-connectivity-test",
-    {
-      metadata: {
-        name: "cluster-connectivity-test",
-        namespace: namespace || "default",
-      },
-      data: {
-        test: "connectivity-verified",
-        timestamp: new Date().toISOString(),
-        "cluster-info": "authenticated",
-      },
-    },
-    { provider: k8sProvider, dependsOn: dependsOnResources }
-  );
-
-  // Add a server version check to ensure the cluster API is accessible
-  const versionCheck = new k8s.core.v1.ConfigMap(
-    "version-validation",
-    {
-      metadata: {
-        name: "version-validation",
-        namespace: namespace || "default",
-      },
-      data: {
-        validation: "k8s-api-accessible",
-        timestamp: new Date().toISOString(),
-      },
-    },
-    { provider: k8sProvider, dependsOn: [connectivityTest] }
-  );
-
-  // Add both tests to dependencies to ensure cluster is ready
-  dependsOnResources.push(connectivityTest, versionCheck);
-
-  const iaasRafikiChart = new k8s.helm.v3.Chart(
-    helmReleaseName,
-    {
-      path: resolvedChartPath,
-      values: mergedChartValues,
-      namespace: namespace || "default", // Use specified namespace or default
-      // Skip hooks that might fail during initial deployment
-      skipAwait: false,
-      // Add chart-specific options to handle version detection issues
-      transformations: [
-        // Add transformation to handle potential version issues
-        (args: any) => {
-          // Log the resource being created for debugging
-          if (args.type === "kubernetes:helm.sh/v3:Chart") {
-            pulumi.log.info(`Creating Helm chart resource: ${args.name}`);
-          }
-          return args;
-        },
-      ],
-    },
-    {
-      provider: k8sProvider,
-      dependsOn: dependsOnResources,
-      // Add custom timeout for the resource creation
-      customTimeouts: {
-        create: "15m",
-        update: "15m",
-        delete: "10m",
-      },
-      // Add additional options for better reliability
-      protect: false,
-      ignoreChanges: [],
+        { provider: k8sProvider }
+      );
+      dependsOnResources.push(namespaceResource);
     }
-  );
 
-  // Get ingress IP/hostname for AWS
-  let ingressIpOutput: pulumi.Output<string> | undefined;
-  if (cloudProvider === "aws") {
-    const loadBalancerIngressOutput = iaasRafikiChart.getResourceProperty(
-      "networking.k8s.io/v1/Ingress",
-      ingressResourceName,
-      "status"
+    // Create a simple ConfigMap to test cluster connectivity and ensure the cluster is ready
+    // Wait for the cluster to be fully operational before creating any Kubernetes resources
+    const connectivityTest = new k8s.core.v1.ConfigMap(
+      "cluster-connectivity-test",
+      {
+        metadata: {
+          name: "cluster-connectivity-test",
+          namespace: namespace || "default",
+          annotations: {
+            "pulumi.com/skipAwait": "false",
+          },
+        },
+        data: {
+          test: "connectivity-verified",
+          timestamp: new Date().toISOString(),
+          "cluster-info": "authenticated",
+          "provider-ready": "true",
+        },
+      },
+      {
+        provider: k8sProvider,
+        dependsOn: dependsOnResources,
+      }
     );
 
-    ingressIpOutput = loadBalancerIngressOutput.apply((status: any): string => {
-      if (status?.loadBalancer?.ingress?.[0]) {
-        const hostname = status.loadBalancer.ingress[0].hostname;
-        const ip = status.loadBalancer.ingress[0].ip;
-        return hostname || ip || "Pending";
-      }
-      return "Pending";
-    });
-  } else {
-    ingressIpOutput = pulumi.output(
-      clusterData.staticIpName || "Pending"
-    ) as pulumi.Output<string>;
-  }
+    // Add a server version check to ensure the cluster API is accessible
+    const versionCheck = new k8s.core.v1.ConfigMap(
+      "version-validation",
+      {
+        metadata: {
+          name: "version-validation",
+          namespace: namespace || "default",
+        },
+        data: {
+          validation: "k8s-api-accessible",
+          timestamp: new Date().toISOString(),
+        },
+      },
+      { provider: k8sProvider, dependsOn: [connectivityTest] }
+    );
 
-  return {
-    kubeconfig: clusterData.kubeconfig,
-    clusterName: clusterData.clusterName,
-    ingressIp: ingressIpOutput,
-    helmChart: iaasRafikiChart,
-    clusterData: clusterData,
-  };
-});
+    // Add both tests to dependencies to ensure cluster is ready
+    dependsOnResources.push(connectivityTest, versionCheck);
+
+    const iaasRafikiChart = new k8s.helm.v3.Chart(
+      helmReleaseName,
+      {
+        path: resolvedChartPath,
+        values: mergedChartValues,
+        namespace: namespace || "default", // Use specified namespace or default
+        // Skip hooks that might fail during initial deployment
+        skipAwait: false,
+        // Add chart-specific options to handle version detection issues
+        transformations: [
+          // Add transformation to handle potential version issues
+          (args: any) => {
+            // Log the resource being created for debugging
+            if (args.type === "kubernetes:helm.sh/v3:Chart") {
+              pulumi.log.info(`Creating Helm chart resource: ${args.name}`);
+            }
+            return args;
+          },
+        ],
+      },
+      {
+        provider: k8sProvider,
+        dependsOn: dependsOnResources,
+        // Add custom timeout for the resource creation
+        customTimeouts: {
+          create: "15m",
+          update: "15m",
+          delete: "10m",
+        },
+        // Add additional options for better reliability
+        protect: false,
+        ignoreChanges: [],
+      }
+    );
+
+    // Get ingress IP/hostname for AWS
+    let ingressIpOutput: pulumi.Output<string> | undefined;
+    if (cloudProvider === "aws") {
+      const loadBalancerIngressOutput = iaasRafikiChart.getResourceProperty(
+        "networking.k8s.io/v1/Ingress",
+        ingressResourceName,
+        "status"
+      );
+
+      ingressIpOutput = loadBalancerIngressOutput.apply(
+        (status: any): string => {
+          if (status?.loadBalancer?.ingress?.[0]) {
+            const hostname = status.loadBalancer.ingress[0].hostname;
+            const ip = status.loadBalancer.ingress[0].ip;
+            return hostname || ip || "Pending";
+          }
+          return "Pending";
+        }
+      );
+    } else {
+      ingressIpOutput = pulumi.output(
+        clusterData.staticIpName || "Pending"
+      ) as pulumi.Output<string>;
+    }
+
+    return {
+      kubeconfig: clusterData.kubeconfig,
+      clusterName: clusterData.clusterName,
+      ingressIp: ingressIpOutput,
+      helmChart: iaasRafikiChart,
+      clusterData: clusterData,
+    };
+  });
 
 // =================
 // EXPORTS

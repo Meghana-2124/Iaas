@@ -134,7 +134,7 @@ export function createGkeCluster(name: string, stack: string) {
         oauthScopes: ["https://www.googleapis.com/auth/cloud-platform"],
       },
     },
-    { provider: gcpProvider }
+    { provider: gcpProvider, dependsOn: [cluster] }
   );
 
   const kubeconfig = pulumi
@@ -144,9 +144,17 @@ export function createGkeCluster(name: string, stack: string) {
       cluster.masterAuth,
       pulumi.output(project),
       pulumi.output(zone),
+      nodePool.id, // Ensure node pool is ready
     ])
     .apply(
-      ([clusterNameValue, endpoint, masterAuth, projectValue, zoneValue]) => {
+      ([
+        clusterNameValue,
+        endpoint,
+        masterAuth,
+        projectValue,
+        zoneValue,
+        nodePoolId,
+      ]) => {
         const context = `${projectValue}_${zoneValue}_${clusterNameValue}`;
         // Generate kubeconfig with gke-gcloud-auth-plugin
         return `apiVersion: v1
@@ -173,7 +181,9 @@ users:
       provideClusterInfo: true
       env:
       - name: USE_GKE_GCLOUD_AUTH_PLUGIN
-        value: "True"`;
+        value: "True"
+      - name: GOOGLE_APPLICATION_CREDENTIALS
+        value: ${process.env.GOOGLE_APPLICATION_CREDENTIALS || ""}`;
       }
     );
 
