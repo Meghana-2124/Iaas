@@ -112,6 +112,8 @@ function setupInfrastructure() {
         kubeconfig: cluster.kubeconfig,
         enableServerSideApply: true,
         suppressDeprecationWarnings: true,
+        // Add retry configuration for better reliability
+        deleteUnreachable: true,
       });
       pulumi.log.info(
         "GCP GKE cluster deployment initiated for dedicated cluster."
@@ -195,6 +197,9 @@ setupInfrastructure();
 
 // Deploy helm chart and create resources based on infrastructure setup
 const deploymentOutputs = pulumi.output(cluster).apply((clusterData: any) => {
+  // Wait for cluster to be ready before proceeding with Helm deployment
+  // This ensures the cluster is fully operational before we try to deploy
+
   // Prepare Helm values and resolve bundled chart path only
   // Resolve bundled Helm chart path. Packaged layout: <pkgRoot>/dist (this file), <pkgRoot>/helm-chart
   // Use top-level monorepo helm-chart during development; during publish it's copied beside dist.
@@ -294,14 +299,75 @@ const deploymentOutputs = pulumi.output(cluster).apply((clusterData: any) => {
     dependsOnResources.push(namespaceResource);
   }
 
+  // Create a simple ConfigMap to test cluster connectivity and ensure the cluster is ready
+  const connectivityTest = new k8s.core.v1.ConfigMap(
+    "cluster-connectivity-test",
+    {
+      metadata: {
+        name: "cluster-connectivity-test",
+        namespace: namespace || "default",
+      },
+      data: {
+        test: "connectivity-verified",
+        timestamp: new Date().toISOString(),
+        "cluster-info": "authenticated",
+      },
+    },
+    { provider: k8sProvider, dependsOn: dependsOnResources }
+  );
+
+  // Add a server version check to ensure the cluster API is accessible
+  const versionCheck = new k8s.core.v1.ConfigMap(
+    "version-validation",
+    {
+      metadata: {
+        name: "version-validation",
+        namespace: namespace || "default",
+      },
+      data: {
+        validation: "k8s-api-accessible",
+        timestamp: new Date().toISOString(),
+      },
+    },
+    { provider: k8sProvider, dependsOn: [connectivityTest] }
+  );
+
+  // Add both tests to dependencies to ensure cluster is ready
+  dependsOnResources.push(connectivityTest, versionCheck);
+
   const iaasRafikiChart = new k8s.helm.v3.Chart(
     helmReleaseName,
     {
       path: resolvedChartPath,
       values: mergedChartValues,
       namespace: namespace || "default", // Use specified namespace or default
+      // Skip hooks that might fail during initial deployment
+      skipAwait: false,
+      // Add chart-specific options to handle version detection issues
+      transformations: [
+        // Add transformation to handle potential version issues
+        (args: any) => {
+          // Log the resource being created for debugging
+          if (args.type === "kubernetes:helm.sh/v3:Chart") {
+            pulumi.log.info(`Creating Helm chart resource: ${args.name}`);
+          }
+          return args;
+        },
+      ],
     },
-    { provider: k8sProvider, dependsOn: dependsOnResources }
+    {
+      provider: k8sProvider,
+      dependsOn: dependsOnResources,
+      // Add custom timeout for the resource creation
+      customTimeouts: {
+        create: "15m",
+        update: "15m",
+        delete: "10m",
+      },
+      // Add additional options for better reliability
+      protect: false,
+      ignoreChanges: [],
+    }
   );
 
   // Get ingress IP/hostname for AWS

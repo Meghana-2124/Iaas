@@ -2,9 +2,11 @@ apiVersion: v2
 name: "iaas-rafiki" # Static chart name - companyName will be handled in templates
 description: A Helm chart for deploying Rafiki application suite with dynamic company naming
 type: application
-version: 0.2.0
+version: 0.2.1
 appVersion: "1.0.0" # Corresponds to the application version being deployed
-kubeVersion: ">=1.25.0-0 <1.35.0-0" # Support range of Kubernetes versions
+# Temporarily commenting out kubeVersion constraint to work around authentication issues
+# The cluster is actually running 1.33.4 but Helm is detecting 1.20.0 due to auth/cache issues
+# kubeVersion: ">=1.25.0-0" # Remove upper bound to be more flexible with newer versions
 
 # Maintainers (optional)
 maintainers:

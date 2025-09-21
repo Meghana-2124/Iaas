@@ -148,6 +148,7 @@ export function createGkeCluster(name: string, stack: string) {
     .apply(
       ([clusterNameValue, endpoint, masterAuth, projectValue, zoneValue]) => {
         const context = `${projectValue}_${zoneValue}_${clusterNameValue}`;
+        // Generate kubeconfig with both gke-gcloud-auth-plugin and fallback token auth
         return `
 apiVersion: v1
 clusters:
@@ -168,13 +169,24 @@ users:
   user:
     exec:
       apiVersion: client.authentication.k8s.io/v1beta1
-      command: gke-gcloud-auth-plugin
-      installHint: Install gke-gcloud-auth-plugin for use with kubectl by following
-        https://cloud.google.com/blog/products/containers-kubernetes/kubectl-auth-changes-in-gke
-      provideClusterInfo: true
+      command: sh
+      args:
+      - -c
+      - |
+        # Try gke-gcloud-auth-plugin first, then fallback to gcloud
+        if command -v gke-gcloud-auth-plugin >/dev/null 2>&1; then
+          exec gke-gcloud-auth-plugin
+        else
+          # Fallback to gcloud for authentication
+          gcloud auth print-access-token
+        fi
       env:
       - name: USE_GKE_GCLOUD_AUTH_PLUGIN
         value: "True"
+      - name: GOOGLE_APPLICATION_CREDENTIALS
+        value: "${credentials || ""}"
+      - name: CLOUDSDK_CORE_PROJECT
+        value: "${projectValue}"
 `;
       }
     );
