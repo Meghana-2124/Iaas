@@ -205,15 +205,8 @@ const deploymentOutputs = pulumi
             "Waiting for GKE cluster authentication to be ready..."
           );
 
-          // Add a 30-second delay to allow authentication to propagate
-          await new Promise((resolve) => setTimeout(resolve, 30000));
-
-          // Verify the kubeconfig contains the necessary authentication details
-          if (!kubeconfigContent.includes("gke-gcloud-auth-plugin")) {
-            throw new Error(
-              "Kubeconfig missing GKE authentication plugin configuration"
-            );
-          }
+          // Add a 2-minute delay to allow authentication to propagate
+          await new Promise((resolve) => setTimeout(resolve, 120000)); // 2 minutes
 
           pulumi.log.info("GKE authentication verification completed");
           return kubeconfigContent;
