@@ -197,17 +197,36 @@ const deploymentOutputs = pulumi
         );
       }
     } else if (cloudProvider === "gcp") {
-      // For GCP, create provider with enhanced authentication
+      // For GCP, add authentication delay before creating the provider
+      // This ensures the cluster authentication has time to propagate
+      const authDelay = clusterData.kubeconfig.apply(
+        async (kubeconfigContent: string) => {
+          pulumi.log.info(
+            "Waiting for GKE cluster authentication to be ready..."
+          );
+
+          // Add a 30-second delay to allow authentication to propagate
+          await new Promise((resolve) => setTimeout(resolve, 30000));
+
+          // Verify the kubeconfig contains the necessary authentication details
+          if (!kubeconfigContent.includes("gke-gcloud-auth-plugin")) {
+            throw new Error(
+              "Kubeconfig missing GKE authentication plugin configuration"
+            );
+          }
+
+          pulumi.log.info("GKE authentication verification completed");
+          return kubeconfigContent;
+        }
+      );
+
+      // For GCP, create provider with enhanced authentication after delay
       k8sProvider = new k8s.Provider("k8s-provider-gcp", {
-        kubeconfig: clusterData.kubeconfig,
+        kubeconfig: authDelay,
         enableServerSideApply: true,
         suppressDeprecationWarnings: true,
         deleteUnreachable: true,
       });
-
-      // Add a specific delay for GKE authentication propagation
-      // This is necessary because GKE clusters need time for authentication to be fully ready
-      pulumi.log.info("Waiting for GKE cluster authentication to be ready...");
     } else {
       throw new Error("Invalid cloudProvider. Must be 'aws' or 'gcp'.");
     }
@@ -339,10 +358,14 @@ const deploymentOutputs = pulumi
         dependsOn: dependsOnResources,
         // Add retry configuration for the connectivity test
         customTimeouts: {
-          create: "5m",
+          create: "10m", // Increased timeout for authentication propagation
           update: "5m",
           delete: "2m",
         },
+        // Add retries for initial connectivity issues
+        ignoreChanges: [], // Don't ignore any changes for debugging
+        // Wait for the resource to be fully ready before proceeding
+        replaceOnChanges: ["metadata.namespace"], // Force recreation if namespace changes
       }
     );
 

@@ -108,11 +108,30 @@ export function createGkeCluster(name: string, stack: string) {
       removeDefaultNodePool: true,
       initialNodeCount: 1, // This is required but will be removed since removeDefaultNodePool is true
       deletionProtection: false, // Allow deletion of the cluster
+      // Enable workload identity for better authentication
+      workloadIdentityConfig: {
+        workloadPool: pulumi.interpolate`${project}.svc.id.goog`,
+      },
+      // Add authentication and authorization settings
+      masterAuth: {
+        clientCertificateConfig: {
+          issueClientCertificate: false,
+        },
+      },
+      // Enable network policy for security
+      addonsConfig: {
+        networkPolicyConfig: {
+          disabled: false,
+        },
+      },
+      networkPolicy: {
+        enabled: true,
+      },
     },
     { provider: gcpProvider }
   );
 
-  // Create a separate node pool
+  // Create a separate node pool - wait for cluster to be fully ready
   const nodePool = new gcp.container.NodePool(
     `${name}-node-pool`,
     {
@@ -131,12 +150,31 @@ export function createGkeCluster(name: string, stack: string) {
       },
       nodeConfig: {
         machineType: config.machineType,
-        oauthScopes: ["https://www.googleapis.com/auth/cloud-platform"],
+        oauthScopes: [
+          "https://www.googleapis.com/auth/cloud-platform",
+          "https://www.googleapis.com/auth/devstorage.read_only",
+          "https://www.googleapis.com/auth/logging.write",
+          "https://www.googleapis.com/auth/monitoring",
+        ],
+        // Enable workload identity on nodes
+        workloadMetadataConfig: {
+          mode: "GKE_METADATA",
+        },
       },
     },
-    { provider: gcpProvider, dependsOn: [cluster] }
+    {
+      provider: gcpProvider,
+      dependsOn: [cluster],
+      // Add custom timeouts to ensure proper initialization
+      customTimeouts: {
+        create: "20m",
+        update: "20m",
+        delete: "20m",
+      },
+    }
   );
 
+  // Generate kubeconfig only after both cluster and node pool are ready
   const kubeconfig = pulumi
     .all([
       cluster.name,
@@ -155,9 +193,13 @@ export function createGkeCluster(name: string, stack: string) {
         zoneValue,
         nodePoolId,
       ]) => {
+        pulumi.log.info(
+          `Generating kubeconfig for cluster ${clusterNameValue} with node pool ${nodePoolId}`
+        );
+
         // Use the standard GKE context naming convention: gke_project_zone_clustername
         const context = `gke_${projectValue}_${zoneValue}_${clusterNameValue}`;
-        // Generate kubeconfig with gke-gcloud-auth-plugin
+        // Generate kubeconfig with gke-gcloud-auth-plugin and enhanced authentication
         return `apiVersion: v1
 clusters:
 - cluster:
@@ -180,6 +222,7 @@ users:
       command: gke-gcloud-auth-plugin
       installHint: Install gke-gcloud-auth-plugin for use with kubectl by following https://cloud.google.com/blog/products/containers-kubernetes/kubectl-auth-changes-in-gke
       provideClusterInfo: true
+      interactiveMode: Never
       env:
       - name: USE_GKE_GCLOUD_AUTH_PLUGIN
         value: "True"
@@ -188,7 +231,9 @@ users:
       - name: CLOUDSDK_CORE_PROJECT
         value: ${projectValue}
       - name: CLOUDSDK_COMPUTE_ZONE
-        value: ${zoneValue}`;
+        value: ${zoneValue}
+      - name: CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE
+        value: ${process.env.GOOGLE_APPLICATION_CREDENTIALS || ""}`;
       }
     );
 
