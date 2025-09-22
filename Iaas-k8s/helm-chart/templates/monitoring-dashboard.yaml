@@ -7,7 +7,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: tier-monitoring-dashboard
-  namespace: {{ .Values.namespace | default "default" }}
+  namespace: {{ include "iaas-rafiki.namespace" . }}
   labels:
     app.kubernetes.io/name: tier-monitoring
     app.kubernetes.io/instance: {{ .Release.Name }}
@@ -387,7 +387,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: tier-alerts-dashboard
-  namespace: {{ .Values.namespace | default "default" }}
+  namespace: {{ include "iaas-rafiki.namespace" . }}
   labels:
     app.kubernetes.io/name: tier-alerts
     app.kubernetes.io/instance: {{ .Release.Name }}
