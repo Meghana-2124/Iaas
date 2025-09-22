@@ -208,15 +208,9 @@ const deploymentOutputs = pulumi
         );
       }
       // Simple GCP provider
-      k8sProvider = new k8s.Provider(
-        "k8s-provider-gcp",
-        {
-          kubeconfig: clusterData.kubeconfig,
-        },
-        {
-          dependsOn: [cluster], // Wait for cluster creation
-        }
-      );
+      k8sProvider = new k8s.Provider("k8s-provider-gcp", {
+        kubeconfig: clusterData.kubeconfig,
+      });
     } else {
       throw new Error("Invalid cloudProvider. Must be 'aws' or 'gcp'.");
     }

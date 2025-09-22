@@ -32,9 +32,11 @@ export function createGkeCluster(name: string, stack: string) {
   const region = gcpConfig.get("region") || "us-central1";
   const zone = gcpConfig.get("zone") || "us-central1-a";
   const credentials = gcpConfig.get("credentials");
+  const credentialsPath = gcpConfig.get("credentialsPath");
 
   pulumi.log.info(`Creating simple GKE cluster: ${name} in ${zone}`);
-  pulumi.log.info(`Using credentials from: ${credentials}`);
+  pulumi.log.info(`Using credentials from: ${JSON.stringify(credentials)}`);
+  pulumi.log.info(`Using credentials path from: ${JSON.stringify(credentialsPath)}`);
 
   // Simple GCP provider
   const gcpProvider = credentials
@@ -49,7 +51,7 @@ export function createGkeCluster(name: string, stack: string) {
         region: region,
         zone: zone,
       });
-
+  
   // Simple static IP
   const staticIp = new gcp.compute.GlobalAddress(
     "rafiki-global-ip",
@@ -105,7 +107,10 @@ users:
       provideClusterInfo: true
       env:
       - name: USE_GKE_GCLOUD_AUTH_PLUGIN
-        value: "True"`;
+        value: "True"
+      - name: GOOGLE_APPLICATION_CREDENTIALS
+        value: "${credentialsPath || ""}"
+        `;
     });
 
   return {

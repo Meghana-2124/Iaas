@@ -156,6 +156,9 @@ export class PulumiConfigManager {
             pulumi.log.info(
               `Using GCP credentials from file path: ${fullPath}`
             );
+            await stack.setConfig("gcp:credentialsPath", {
+              value: fullPath,
+            });
             credentialsValue = fs.readFileSync(fullPath, "utf8");
             this.logger.debug("✓ Set GCP credentials from file path");
           } catch (error) {
