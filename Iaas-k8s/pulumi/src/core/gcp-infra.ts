@@ -36,7 +36,9 @@ export function createGkeCluster(name: string, stack: string) {
 
   pulumi.log.info(`Creating simple GKE cluster: ${name} in ${zone}`);
   pulumi.log.info(`Using credentials from: ${JSON.stringify(credentials)}`);
-  pulumi.log.info(`Using credentials path from: ${JSON.stringify(credentialsPath)}`);
+  pulumi.log.info(
+    `Using credentials path from: ${JSON.stringify(credentialsPath)}`
+  );
 
   // Simple GCP provider
   const gcpProvider = credentials
@@ -51,7 +53,7 @@ export function createGkeCluster(name: string, stack: string) {
         region: region,
         zone: zone,
       });
-  
+
   // Simple static IP
   const staticIp = new gcp.compute.GlobalAddress(
     "rafiki-global-ip",
@@ -79,31 +81,31 @@ export function createGkeCluster(name: string, stack: string) {
   );
 
   // Simple kubeconfig
-  const kubeconfig = pulumi
-    .all([cluster.name, cluster.endpoint, cluster.masterAuth])
-    .apply(([clusterName, endpoint, masterAuth]) => {
-      const context = `gke_${project}_${zone}_${clusterName}`;
-      return `apiVersion: v1
+  const kubeconfig = pulumi.interpolate`apiVersion: v1
 clusters:
 - cluster:
-    certificate-authority-data: ${masterAuth.clusterCaCertificate}
-    server: https://${endpoint}
-  name: ${context}
+    certificate-authority-data: ${cluster.masterAuth.clusterCaCertificate}
+    server: https://${cluster.endpoint}
+  name: ${cluster.name}
 contexts:
 - context:
-    cluster: ${context}
-    user: ${context}
-  name: ${context}
-current-context: ${context}
+    cluster: ${cluster.name}
+    user: ${cluster.name}
+  name: ${cluster.name}
+current-context: ${cluster.name}
 kind: Config
 preferences: {}
 users:
-- name: ${context}
+- name: ${cluster.name}
   user:
     exec:
       apiVersion: client.authentication.k8s.io/v1beta1
+      args: null
       command: gke-gcloud-auth-plugin
-      installHint: Install gke-gcloud-auth-plugin for use with kubectl
+      env: null
+      installHint: Install gke-gcloud-auth-plugin for use with kubectl by following
+        https://cloud.google.com/kubernetes-engine/docs/how-to/cluster-access-for-kubectl#install_plugin
+      interactiveMode: IfAvailable
       provideClusterInfo: true
       env:
       - name: USE_GKE_GCLOUD_AUTH_PLUGIN
@@ -114,8 +116,7 @@ users:
         value: "${project}"
       - name: CLOUDSDK_COMPUTE_ZONE
         value: "${zone}"
-        `;
-    });
+`;
 
   return {
     kubeconfig: kubeconfig,
