@@ -1,6 +1,7 @@
 import * as gcp from "@pulumi/gcp";
 import * as pulumi from "@pulumi/pulumi";
 import { ClusterLookupResult } from "../types/index.js";
+import { GoogleAuth } from "google-auth-library";
 
 // Simple configurations for different environments
 interface GkeConfig {
@@ -36,7 +37,9 @@ export function createGkeCluster(name: string, stack: string) {
 
   pulumi.log.info(`Creating simple GKE cluster: ${name} in ${zone}`);
   pulumi.log.info(`Using credentials from: ${JSON.stringify(credentials)}`);
-  pulumi.log.info(`Using credentials path from: ${JSON.stringify(credentialsPath)}`);
+  pulumi.log.info(
+    `Using credentials path from: ${JSON.stringify(credentialsPath)}`
+  );
 
   // Simple GCP provider
   const gcpProvider = credentials
@@ -51,7 +54,7 @@ export function createGkeCluster(name: string, stack: string) {
         region: region,
         zone: zone,
       });
-  
+
   // Simple static IP
   const staticIp = new gcp.compute.GlobalAddress(
     "rafiki-global-ip",
@@ -78,12 +81,58 @@ export function createGkeCluster(name: string, stack: string) {
     { provider: gcpProvider }
   );
 
-  // Simple kubeconfig
+  //   // Simple kubeconfig
+  //   const kubeconfig = pulumi
+  //     .all([cluster.name, cluster.endpoint, cluster.masterAuth])
+  //     .apply(([clusterName, endpoint, masterAuth]) => {
+  //       const context = `gke_${project}_${zone}_${clusterName}`;
+  //       return `apiVersion: v1
+  // clusters:
+  // - cluster:
+  //     certificate-authority-data: ${masterAuth.clusterCaCertificate}
+  //     server: https://${endpoint}
+  //   name: ${context}
+  // contexts:
+  // - context:
+  //     cluster: ${context}
+  //     user: ${context}
+  //   name: ${context}
+  // current-context: ${context}
+  // kind: Config
+  // preferences: {}
+  // users:
+  // - name: ${context}
+  //   user:
+  //     exec:
+  //       apiVersion: client.authentication.k8s.io/v1beta1
+  //       command: gke-gcloud-auth-plugin
+  //       installHint: Install gke-gcloud-auth-plugin for use with kubectl
+  //       provideClusterInfo: true
+  //       env:
+  //       - name: USE_GKE_GCLOUD_AUTH_PLUGIN
+  //         value: "True"
+  //       - name: GOOGLE_APPLICATION_CREDENTIALS
+  //         value: "${credentialsPath || ""}"
+  //       - name: CLOUDSDK_CORE_PROJECT
+  //         value: "${project}"
+  //       - name: CLOUDSDK_COMPUTE_ZONE
+  //         value: "${zone}"
+  //         `;
+  //     });
+  // Simple kubeconfig with token-based auth
   const kubeconfig = pulumi
     .all([cluster.name, cluster.endpoint, cluster.masterAuth])
     .apply(([clusterName, endpoint, masterAuth]) => {
       const context = `gke_${project}_${zone}_${clusterName}`;
-      return `apiVersion: v1
+
+      // Get access token for immediate use
+      const auth = new GoogleAuth({
+        keyFilename: credentialsPath,
+        scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+      });
+
+      return auth.getAccessToken().then((token) => {
+        return `apiVersion: v1
 clusters:
 - cluster:
     certificate-authority-data: ${masterAuth.clusterCaCertificate}
@@ -100,17 +149,9 @@ preferences: {}
 users:
 - name: ${context}
   user:
-    exec:
-      apiVersion: client.authentication.k8s.io/v1beta1
-      command: gke-gcloud-auth-plugin
-      installHint: Install gke-gcloud-auth-plugin for use with kubectl
-      provideClusterInfo: true
-      env:
-      - name: USE_GKE_GCLOUD_AUTH_PLUGIN
-        value: "True"
-      - name: GOOGLE_APPLICATION_CREDENTIALS
-        value: "${credentialsPath || ""}"
+    token: ${token}
         `;
+      });
     });
 
   return {
