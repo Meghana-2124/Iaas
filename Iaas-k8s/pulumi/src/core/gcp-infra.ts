@@ -34,6 +34,7 @@ export function createGkeCluster(name: string, stack: string) {
   const credentials = gcpConfig.get("credentials");
 
   pulumi.log.info(`Creating simple GKE cluster: ${name} in ${zone}`);
+  pulumi.log.info(`Using credentials from: ${credentials}`);
 
   // Simple GCP provider
   const gcpProvider = credentials

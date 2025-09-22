@@ -197,10 +197,26 @@ const deploymentOutputs = pulumi
         );
       }
     } else if (cloudProvider === "gcp") {
+      // Set environment variable if credentials file was created
+      const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+
+      pulumi.log.info(`GCP credentials file path: ${credentialsPath}`);
+
+      if (credentialsPath && !fs.existsSync(credentialsPath)) {
+        throw new Error(
+          `GCP credentials file not found at: ${credentialsPath}`
+        );
+      }
       // Simple GCP provider
-      k8sProvider = new k8s.Provider("k8s-provider-gcp", {
-        kubeconfig: clusterData.kubeconfig,
-      });
+      k8sProvider = new k8s.Provider(
+        "k8s-provider-gcp",
+        {
+          kubeconfig: clusterData.kubeconfig,
+        },
+        {
+          dependsOn: [cluster], // Wait for cluster creation
+        }
+      );
     } else {
       throw new Error("Invalid cloudProvider. Must be 'aws' or 'gcp'.");
     }

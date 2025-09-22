@@ -5,6 +5,7 @@ import type {
   CloudConfig,
   Logger,
 } from "../types/index.js";
+import * as pulumi from "@pulumi/pulumi";
 import { validateAndProcessSecrets } from "./validation.js";
 
 export interface PulumiConfigSetup {
@@ -152,6 +153,9 @@ export class PulumiConfigManager {
               `✓ Set GOOGLE_APPLICATION_CREDENTIALS to: ${fullPath}`
             );
 
+            pulumi.log.info(
+              `Using GCP credentials from file path: ${fullPath}`
+            );
             credentialsValue = fs.readFileSync(fullPath, "utf8");
             this.logger.debug("✓ Set GCP credentials from file path");
           } catch (error) {
