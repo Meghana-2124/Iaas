@@ -265,7 +265,8 @@ const deploymentOutputs = pulumi
     mergedChartValues.companyName = companyName;
 
     // Set namespace and deployment type in chart values
-    if (namespace) {
+    // Only set namespace for shared deployments
+    if (deploymentType === "shared" && namespace) {
       mergedChartValues.namespace = namespace;
     }
     mergedChartValues.deploymentType = deploymentType;
@@ -326,7 +327,8 @@ const deploymentOutputs = pulumi
       {
         path: resolvedChartPath,
         values: mergedChartValues,
-        namespace: namespace || "default",
+        namespace:
+          deploymentType === "shared" && namespace ? namespace : "default",
       },
       {
         provider: k8sProvider,
@@ -461,19 +463,21 @@ export const managementCommands = deploymentOutputs.apply((outputs: any) => {
       ? `${namespace}-rafiki`
       : `${companyName}-rafiki`;
   const ingressResourceName = "rafiki-ingress";
+  const namespaceFlag =
+    deploymentType === "shared" && namespace ? ` -n ${namespace}` : "";
 
   return {
     kubectl: {
-      getPods: `kubectl get pods -l app.kubernetes.io/instance=${helmReleaseName}`,
-      getServices: `kubectl get services -l app.kubernetes.io/instance=${helmReleaseName}`,
-      getIngress: `kubectl get ingress ${ingressResourceName}`,
-      getLogs: `kubectl logs -l app.kubernetes.io/instance=${helmReleaseName} -f`,
+      getPods: `kubectl get pods -l app.kubernetes.io/instance=${helmReleaseName}${namespaceFlag}`,
+      getServices: `kubectl get services -l app.kubernetes.io/instance=${helmReleaseName}${namespaceFlag}`,
+      getIngress: `kubectl get ingress ${ingressResourceName}${namespaceFlag}`,
+      getLogs: `kubectl logs -l app.kubernetes.io/instance=${helmReleaseName} -f${namespaceFlag}`,
     },
     helm: {
-      status: `helm status ${helmReleaseName}`,
-      values: `helm get values ${helmReleaseName}`,
-      upgrade: `helm upgrade ${helmReleaseName} [CHART_PATH] -f [VALUES_FILE]`,
-      uninstall: `helm uninstall ${helmReleaseName}`,
+      status: `helm status ${helmReleaseName}${namespaceFlag}`,
+      values: `helm get values ${helmReleaseName}${namespaceFlag}`,
+      upgrade: `helm upgrade ${helmReleaseName} [CHART_PATH] -f [VALUES_FILE]${namespaceFlag}`,
+      uninstall: `helm uninstall ${helmReleaseName}${namespaceFlag}`,
     },
   };
 });

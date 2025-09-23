@@ -7,7 +7,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: node-exporter
-  namespace: {{ .Values.namespace | default "default" }}
+  namespace: {{ include "iaas-rafiki.namespace" . }}
   labels:
     app.kubernetes.io/name: node-exporter
     app.kubernetes.io/instance: {{ .Release.Name }}-node-exporter
@@ -47,14 +47,14 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: node-exporter
-    namespace: {{ .Values.namespace | default "default" }}
+    namespace: {{ include "iaas-rafiki.namespace" . }}
 
 ---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: node-exporter
-  namespace: {{ .Values.namespace | default "default" }}
+  namespace: {{ include "iaas-rafiki.namespace" . }}
   labels:
     app.kubernetes.io/name: node-exporter
     app.kubernetes.io/instance: {{ .Release.Name }}-node-exporter
@@ -154,7 +154,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: node-exporter
-  namespace: {{ .Values.namespace | default "default" }}
+  namespace: {{ include "iaas-rafiki.namespace" . }}
   labels:
     app.kubernetes.io/name: node-exporter
     app.kubernetes.io/instance: {{ .Release.Name }}-node-exporter
