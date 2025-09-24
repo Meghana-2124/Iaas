@@ -92,65 +92,11 @@ This setup uses a combination of Pulumi and Helm:
 - Helm value overrides for GCP are specified in `gcp/chart-config/` and passed via `helmValuesJson`/`helmSecretsJson` by `automation.ts`.
 - The static IP name is exported by Pulumi (`staticIpName`) and used in Ingress annotations.
 
-## Tier-Based Resource Allocation System
-
-This project includes a comprehensive tier-based resource allocation system for shared cluster deployments. The system automatically allocates CPU, memory, storage, and replicas based on selected plan tiers.
-
-### Available Tiers
-
-| Tier       | Price/month | CPU    | Memory | Storage | Namespaces | PVCs | Network Policies |
-|------------|-------------|--------|--------|---------|------------|------|------------------|
-| Basic      | $99         | 1.2    | 2.5Gi  | 15Gi    | 1          | 3    | Disabled         |
-| Standard   | $299        | 2.4    | 5Gi    | 30Gi    | 2          | 6    | Enabled          |
-| Premium    | $599        | 4.8    | 10Gi   | 60Gi    | 3          | 10   | Enabled          |
-| Enterprise | $1299       | 9.6    | 20Gi   | 120Gi   | 5          | 20   | Enabled          |
-
-### Tier Usage Examples
-
-#### Deploy with Basic Tier
-```bash
-npm run dev -- up dev-stack \
-  --companyName "acme-corp" \
-  --deploymentType "shared" \
-  --planTier "basic" \
-  --namespace "acme-dev" \
-  --secretsFile "./config/secrets.json" \
-  --valuesFile "./config/values.json" \
-  --cloudProvider "aws"
-```
-
-#### Deploy with Premium Tier + Kubecost
-```bash
-npm run dev -- up prod-stack \
-  --companyName "enterprise-client" \
-  --deploymentType "shared" \
-  --planTier "premium" \
-  --kubecostEnabled true \
-  --secretsFile "./config/prod-secrets.json" \
-  --valuesFile "./config/prod-values.json" \
-  --cloudProvider "gcp"
-```
-
-### Tier Management Commands
-
-```bash
-# List all available tiers
-npm run tier:list --companyName "test" --stackName "test"
-
-# Calculate resources for standard tier
-npm run tier:calculate standard --companyName "test" --stackName "test"
-
-# Validate premium tier configuration
-npm run tier:validate premium --companyName "test" --stackName "test"
-```
-
 ### Key Features
 
-- **Automatic Resource Allocation**: Resources automatically calculated based on tier
-- **Smart Values Merging**: User values override tier defaults while preserving tier labels
 - **Namespace Isolation**: Each deployment gets isolated namespace with resource quotas
 - **Cost Estimation**: Monthly cost estimates provided before deployment
-- **Validation**: Pre-deployment tier and resource validation
+- **Validation**: Pre-deployment resource validation
 
 ## General Workflow
 
