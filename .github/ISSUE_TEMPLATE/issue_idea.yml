@@ -1,0 +1,20 @@
+name: " Issue Idea"
+description: Suggest a task, improvement, or experiment that doesn’t fit other templates
+labels: [discussion]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea for the project? Share it here so we can discuss and see how it fits.
+  - type: input
+    id: title
+    attributes:
+      label: Idea Summary
+      placeholder: e.g. Improve deployment speed by caching container images
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Explain your idea and why it might help

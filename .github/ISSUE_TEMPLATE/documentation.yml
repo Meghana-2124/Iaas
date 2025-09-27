@@ -1,0 +1,19 @@
+name: "Documentation Improvement"
+description: Suggest updates or improvements to documentation
+labels: [documentation]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help us keep our docs clear and helpful! Suggest improvements or report gaps.
+  - type: input
+    id: section
+    attributes:
+      label: Section of Documentation
+      description: Which page/section needs improvement?
+      placeholder: e.g. Quick Start Guide
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Changes
+      description: What needs fixing, clarifying, or expanding?

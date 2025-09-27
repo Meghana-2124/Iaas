@@ -187,3 +187,21 @@ Iaas/
 For detailed usage instructions, see [Iaas-k8s/README.md](./Iaas-k8s/README.md).
 
 For Pulumi-specific documentation and all CLI/file-based config options, see [Iaas-k8s/pulumi/README.md](./Iaas-k8s/pulumi/README.md).
+
+## Community & Contributions
+
+We welcome and encourage contributions from everyone! To get started, please review our [Contribution Guide](/CONTRIBUTING.md), which provides details on the contribution process and pull request guidelines.
+
+If you’d like to extend support for additional cloud providers supported by Pulumi, please see the [Contributing Cloud Providers Guide](/docs/CONTRIBUTING-CLOUD-PROVIDERS.md). It outlines instructions on implementation steps, testing guidelines, and best practices for integrating new providers.
+
+All contributors are expected to follow our [Code of Conduct](/CODE_OF_CONDUCT.md) to maintain a respectful and inclusive community. If you’d like to connect with other contributors, share feedback, or ask questions, join us on [Discord](https://discord.gg/TsyKnzT4qV). 
+
+Every contribution, no matter how small, helps strengthen this project ❤️
+
+## Hacktoberfest
+
+This project is participating in Hacktoberfest 2025! If you’re looking for a way to get involved, check out issues labeled `hacktoberfest` or `good first issue`. Submitting valid pull requests for these issues will count toward your Hacktoberfest contributions.
+
+## License
+
+This project is licensed under the [MIT License](/LICENSE)
