@@ -1,0 +1,28 @@
+{{- if .Values.rafikiAuth.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.rafikiAuth.name "context" .) }}
+  namespace: {{ include "iaas-rafiki.namespace" . }}
+  labels:
+    {{- include "iaas-rafiki.enhancedLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.rafikiAuth.name }}
+spec:
+  type: {{ .Values.rafikiAuth.service.type }}
+  ports:
+    - port: {{ .Values.rafikiAuth.service.ports.main }}
+      targetPort: http-main
+      protocol: TCP
+      name: http-main
+    - port: {{ .Values.rafikiAuth.service.ports.grant }}
+      targetPort: http-grant
+      protocol: TCP
+      name: http-grant
+    - port: {{ .Values.rafikiAuth.service.ports.admin }}
+      targetPort: http-admin
+      protocol: TCP
+      name: http-admin
+  selector:
+    {{- include "iaas-rafiki.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.rafikiAuth.name }}
+{{- end }}

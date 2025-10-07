@@ -1,0 +1,69 @@
+{{- if eq .Values.deploymentType "shared" }}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" "resource-quota" "context" .) }}
+  namespace: {{ include "iaas-rafiki.namespace" . }}
+  labels:
+    {{- include "iaas-rafiki.enhancedLabels" . | nindent 4 }}
+    app.kubernetes.io/component: resource-quota
+    {{- if .Values.planTier }}
+    iaas.deployment/tier: {{ .Values.planTier }}
+    {{- end }}
+    iaas.deployment/company: {{ .Values.companyName }}
+  annotations:
+    iaas.deployment/tier-config: "true"
+    iaas.deployment/managed-by: "tier-calculator"
+spec:
+  hard:
+    {{- if .Values.tierResourceQuota }}
+    # CPU and Memory requests/limits
+    {{- if .Values.tierResourceQuota.requests }}
+    {{- if .Values.tierResourceQuota.requests.cpu }}
+    requests.cpu: {{ .Values.tierResourceQuota.requests.cpu | quote }}
+    {{- end }}
+    {{- if .Values.tierResourceQuota.requests.memory }}
+    requests.memory: {{ .Values.tierResourceQuota.requests.memory | quote }}
+    {{- end }}
+    {{- if .Values.tierResourceQuota.requests.storage }}
+    requests.storage: {{ .Values.tierResourceQuota.requests.storage | quote }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.tierResourceQuota.limits }}
+    {{- if .Values.tierResourceQuota.limits.cpu }}
+    limits.cpu: {{ .Values.tierResourceQuota.limits.cpu | quote }}
+    {{- end }}
+    {{- if .Values.tierResourceQuota.limits.memory }}
+    limits.memory: {{ .Values.tierResourceQuota.limits.memory | quote }}
+    {{- end }}
+    {{- end }}
+    
+    # Resource counts
+    {{- if .Values.tierResourceQuota.pods }}
+    pods: {{ .Values.tierResourceQuota.pods | quote }}
+    {{- end }}
+    {{- if .Values.tierResourceQuota.services }}
+    services: {{ .Values.tierResourceQuota.services | quote }}
+    {{- end }}
+    {{- if .Values.tierResourceQuota.secrets }}
+    secrets: {{ .Values.tierResourceQuota.secrets | quote }}
+    {{- end }}
+    {{- if .Values.tierResourceQuota.configmaps }}
+    configmaps: {{ .Values.tierResourceQuota.configmaps | quote }}
+    {{- end }}
+    {{- if .Values.tierResourceQuota.persistentvolumeclaims }}
+    persistentvolumeclaims: {{ .Values.tierResourceQuota.persistentvolumeclaims | quote }}
+    {{- end }}
+    {{- else }}
+    # Default resource quotas for shared deployments without explicit tiers
+    requests.cpu: "2000m"
+    requests.memory: "4Gi"
+    limits.cpu: "4000m"
+    limits.memory: "8Gi"
+    pods: "20"
+    services: "10"
+    secrets: "20"
+    configmaps: "20"
+    persistentvolumeclaims: "5"
+    {{- end }}
+{{- end }}

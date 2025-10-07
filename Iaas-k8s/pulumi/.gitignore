@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+*.tsbuildinfo
+
+# Configuration files with secrets
+config/secrets.json
+config/secrets*.yaml
+secrets*.json
+secrets*.yaml
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Pulumi
+.pulumi/
+*.secret
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Coverage reports
+coverage/
+*.lcov
+
+config/gcp-new.json
+service-account*.json
+
+Pulumi.*.yaml
+*kubeconfig.yaml
+gke_gcloud_auth_plugin_cache
+
+# Ignore copied helm chart (we use top-level repo helm-chart; copy only during publish)
+helm-chart/
+
+config/gcp/
+config/aws/
+config/gcp-*

@@ -1,0 +1,58 @@
+{{- if .Values.redis.enabled }}
+apiVersion: {{ include "deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.redis.name "context" .) }}
+  namespace: {{ include "iaas-rafiki.namespace" . }}
+  labels:
+    {{- include "iaas-rafiki.enhancedLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.redis.name }}
+    {{- if .Values.planTier }}
+    iaas.deployment/tier: {{ .Values.planTier }}
+    {{- end }}
+    {{- if eq .Values.deploymentType "shared" }}
+    iaas.deployment/type: shared
+    {{- else }}
+    iaas.deployment/type: dedicated
+    {{- end }}
+spec:
+  {{- if eq .Values.deploymentType "shared" }}
+  replicas: {{ .Values.redis.replicaCount | default 1 }}
+  {{- else }}
+  replicas: {{ .Values.redis.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "iaas-rafiki.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: {{ .Values.redis.name }}
+  template:
+    metadata:
+      labels:
+        {{- include "iaas-rafiki.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: {{ .Values.redis.name }}
+        {{- if .Values.planTier }}
+        iaas.deployment/tier: {{ .Values.planTier }}
+        {{- end }}
+        {{- if eq .Values.deploymentType "shared" }}
+        iaas.deployment/type: shared
+        {{- else }}
+        iaas.deployment/type: dedicated
+        {{- end }}
+      annotations: {}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Values.redis.name }}
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          ports:
+            - name: redis
+              containerPort: {{ .Values.redis.ports.redis }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+      restartPolicy: Always
+{{- end }}

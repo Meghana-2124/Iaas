@@ -1,0 +1,27 @@
+{{- if .Values.nginx.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.nginx.name "context" .) }}
+  namespace: {{ include "iaas-rafiki.namespace" . }}
+  labels:
+    {{- include "iaas-rafiki.enhancedLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.nginx.name }}
+  annotations:
+    {{- if .Values.gcp.backendConfig.enabled }}
+    cloud.google.com/backend-config: '{"default":"{{ .Values.gcp.backendConfig.name }}"}'
+    {{- end }}
+    {{- with .Values.nginx.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: {{ .Values.nginx.service.type }}
+  ports:
+    - port: {{ .Values.nginx.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "iaas-rafiki.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.nginx.name }}
+{{- end }}

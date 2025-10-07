@@ -1,0 +1,65 @@
+{{- if .Values.nginx.enabled }}
+apiVersion: {{ include "deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.nginx.name "context" .) }}
+  namespace: {{ include "iaas-rafiki.namespace" . }}
+  labels:
+    {{- include "iaas-rafiki.enhancedLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.nginx.name }}
+    {{- if .Values.planTier }}
+    iaas.deployment/tier: {{ .Values.planTier }}
+    {{- end }}
+    {{- if eq .Values.deploymentType "shared" }}
+    iaas.deployment/type: shared
+    {{- else }}
+    iaas.deployment/type: dedicated
+    {{- end }}
+spec:
+  {{- if eq .Values.deploymentType "shared" }}
+  replicas: {{ .Values.nginx.replicaCount | default 1 }}
+  {{- else }}
+  replicas: {{ .Values.nginx.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "iaas-rafiki.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: {{ .Values.nginx.name }}
+  template:
+    metadata:
+      labels:
+        {{- include "iaas-rafiki.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: {{ .Values.nginx.name }}
+        {{- if .Values.planTier }}
+        iaas.deployment/tier: {{ .Values.planTier }}
+        {{- end }}
+        {{- if eq .Values.deploymentType "shared" }}
+        iaas.deployment/type: shared
+        {{- else }}
+        iaas.deployment/type: dedicated
+        {{- end }}
+      annotations: {}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Values.nginx.name }}
+          image: "{{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag }}"
+          imagePullPolicy: {{ .Values.nginx.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.nginx.ports.http }}
+              protocol: TCP
+          volumeMounts:
+            - name: nginx-config-volume
+              mountPath: /etc/nginx/conf.d
+          resources:
+            {{- toYaml .Values.nginx.resources | nindent 12 }}
+      volumes:
+        - name: nginx-config-volume
+          configMap:
+            name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.nginx.configMap.name "context" .) }}
+      restartPolicy: Always
+{{- end }}

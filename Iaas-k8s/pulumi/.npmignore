@@ -1,0 +1,31 @@
+# Source files
+*.ts
+!*.d.ts
+tsconfig.json
+
+# Development files
+.vscode/
+*.backup
+Pulumi.dev.yaml
+Pulumi.staging.yaml
+Pulumi.production.yaml
+secrets.json
+values.json
+
+# Build artifacts (keep dist)
+node_modules/
+*.log
+*.tmp
+
+# Test files
+test/
+tests/
+*.test.*
+*.spec.*
+
+# Documentation (except README)
+docs/
+
+config/gcp/
+config/aws/
+config/gcp-*

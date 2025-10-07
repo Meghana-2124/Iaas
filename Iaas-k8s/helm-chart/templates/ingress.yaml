@@ -1,0 +1,61 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: {{ include "ingress.apiVersion" . }}
+kind: Ingress
+metadata:
+  name: {{ .Values.ingress.name }}
+  namespace: {{ include "iaas-rafiki.namespace" . }}
+  labels:
+    {{- include "iaas-rafiki.enhancedLabels" . | nindent 4 }}
+  annotations:
+    kubernetes.io/ingress.class: {{ .Values.ingress.className | quote }}
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+{{- if .Values.ingress.tls }}
+  tls:
+  {{- range .Values.ingress.tls }}
+    - hosts:
+      {{- range .hosts }}
+        - {{ . | quote }}
+      {{- end }}
+      secretName: {{ .secretName }}
+  {{- end }}
+{{- end }}
+  rules:
+    {{- if .Values.ingress.hosts.ilp }}
+    - host: {{ .Values.ingress.hosts.ilp.host | quote }}
+      http:
+        paths:
+        {{- range .Values.ingress.hosts.ilp.paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .serviceNameSuffix "context" $) }}
+                port:
+                  number: {{ .servicePort }}
+        {{- end }}
+    {{- end }}
+    {{- if .Values.ingress.hosts.auth }}
+    - host: {{ .Values.ingress.hosts.auth.host | quote }}
+      http:
+        paths:
+        {{- range .Values.ingress.hosts.auth.paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .serviceNameSuffix "context" $) }}
+                port:
+                  number: {{ .servicePort }}
+        {{- end }}
+    {{- end }}
+  {{- if .Values.ingress.defaultBackend }}
+  defaultBackend:
+    service:
+      name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.ingress.defaultBackend.service.name "context" $) }}
+      port:
+        number: {{ .Values.ingress.defaultBackend.service.port }}
+  {{- end }}
+{{- end }}

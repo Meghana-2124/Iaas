@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "lib": ["es2020"],
+    "module": "node16",
+    "moduleResolution": "Node16",
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "baseUrl": ".",
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "inlineSources": true,
+    "types": ["node", "jest"],
+    "typeRoots": ["@types", "node_modules/@types", "types"]
+  },
+  "include": ["**/*.ts", "@types/**/*.d.ts"],
+  "exclude": ["node_modules", "**/*.js", "dist"]
+}

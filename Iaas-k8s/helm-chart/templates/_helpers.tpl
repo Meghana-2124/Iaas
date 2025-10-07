@@ -1,0 +1,126 @@
+{{/*
+Expand the name of the chart.
+*/}}
+{{- define "iaas-rafiki.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Create a default fully qualified app name.
+We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
+If release name contains chart name it will be used as a full name.
+*/}}
+{{- define "iaas-rafiki.fullname" -}}
+{{- if .Values.fullnameOverride -}}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- $name := default .Chart.Name .Values.nameOverride -}}
+{{- if contains $name .Release.Name -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Create chart name and version as used by the chart label.
+*/}}
+{{- define "iaas-rafiki.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Common labels
+*/}}
+{{- define "iaas-rafiki.labels" -}}
+helm.sh/chart: {{ include "iaas-rafiki.chart" . }}
+{{ include "iaas-rafiki.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end -}}
+
+{{/*
+Selector labels
+*/}}
+{{- define "iaas-rafiki.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "iaas-rafiki.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end -}}
+
+{{/*
+Create the name for a component service account.
+*/}}
+{{- define "iaas-rafiki.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create -}}
+    {{ default (include "iaas-rafiki.fullname" .) .Values.serviceAccount.name }}
+{{- else -}}
+    {{ default "default" .Values.serviceAccount.name }}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return the appropriate apiVersion for deployment.
+*/}}
+{{- define "deployment.apiVersion" -}}
+{{- if .Capabilities.APIVersions.Has "apps/v1" -}}
+apps/v1
+{{- else -}}
+apps/v1beta2
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return the appropriate apiVersion for ingress.
+*/}}
+{{- define "ingress.apiVersion" -}}
+{{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1" -}}
+networking.k8s.io/v1
+{{- else if .Capabilities.APIVersions.Has "networking.k8s.io/v1beta1" -}}
+networking.k8s.io/v1beta1
+{{- else -}}
+extensions/v1beta1
+{{- end -}}
+{{- end -}}
+
+{{/*
+Construct service name for components
+Usage: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.rafikiAuth.name "context" $) }}
+*/}}
+{{- define "iaas-rafiki.componentFullname" -}}
+{{- printf "%s-%s" .context.Release.Name .componentName | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Return the target namespace for resources
+*/}}
+{{- define "iaas-rafiki.namespace" -}}
+{{- if .Values.namespace -}}
+{{- .Values.namespace -}}
+{{- else -}}
+{{- .Release.Namespace -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Create namespace-aware resource labels
+*/}}
+{{- define "iaas-rafiki.namespaceLabels" -}}
+{{- if and .Values.namespace .Values.deploymentType }}
+iaas.deployment/namespace: {{ .Values.namespace }}
+iaas.deployment/type: {{ .Values.deploymentType }}
+{{- end }}
+{{- if .Values.companyName }}
+iaas.deployment/company: {{ .Values.companyName }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Enhanced labels including namespace information
+*/}}
+{{- define "iaas-rafiki.enhancedLabels" -}}
+{{ include "iaas-rafiki.labels" . }}
+{{- include "iaas-rafiki.namespaceLabels" . | nindent 0 }}
+{{- end -}}

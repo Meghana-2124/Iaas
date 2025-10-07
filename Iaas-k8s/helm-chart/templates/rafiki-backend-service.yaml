@@ -1,0 +1,36 @@
+{{- if .Values.rafikiBackend.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.rafikiBackend.name "context" .) }}
+  namespace: {{ include "iaas-rafiki.namespace" . }}
+  labels:
+    {{- include "iaas-rafiki.enhancedLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.rafikiBackend.name }}
+spec:
+  type: {{ .Values.rafikiBackend.service.type }}
+  ports:
+    - port: {{ .Values.rafikiBackend.service.ports.openPayments }}
+      targetPort: http-openpay
+      protocol: TCP
+      name: http-openpay
+    - port: {{ .Values.rafikiBackend.service.ports.graphql }}
+      targetPort: http-graphql
+      protocol: TCP
+      name: http-graphql
+    - port: {{ .Values.rafikiBackend.service.ports.connector }}
+      targetPort: http-connector
+      protocol: TCP
+      name: http-connector
+    - port: {{ .Values.rafikiBackend.service.ports.admin }}
+      targetPort: http-admin
+      protocol: TCP
+      name: http-admin
+    - port: {{ .Values.rafikiBackend.service.ports.autopeering }}
+      targetPort: http-autopeer
+      protocol: TCP
+      name: http-autopeer
+  selector:
+    {{- include "iaas-rafiki.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.rafikiBackend.name }}
+{{- end }}

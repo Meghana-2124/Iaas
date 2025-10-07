@@ -1,0 +1,26 @@
+name: "Testing & Deployment Task"
+description: Contribute by testing deployments or writing automated tests
+labels: [testing, help wanted]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Testing is a huge part of making this project reliable. Use this template to log what you tested or propose new test coverage.
+  - type: input
+    id: area
+    attributes:
+      label: Area Tested
+      description: What deployment, provider, or module are you testing?
+      placeholder: e.g. AWS EKS CLI deployment
+    validations:
+      required: true
+  - type: textarea
+    id: results
+    attributes:
+      label: Results
+      description: What happened? Did everything work as expected?
+  - type: textarea
+    id: improvements
+    attributes:
+      label: Suggested Improvements
+      description: What should we change or add (code tests, CI improvements, provider checks)?

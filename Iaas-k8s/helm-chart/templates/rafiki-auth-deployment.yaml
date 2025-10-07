@@ -1,0 +1,63 @@
+{{- if .Values.rafikiAuth.enabled }}
+apiVersion: {{ include "deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.rafikiAuth.name "context" .) }}
+  namespace: {{ include "iaas-rafiki.namespace" . }}
+  labels:
+    {{- include "iaas-rafiki.enhancedLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.rafikiAuth.name }}
+    {{- if .Values.planTier }}
+    iaas.deployment/tier: {{ .Values.planTier }}
+    {{- end }}
+    {{- if eq .Values.deploymentType "shared" }}
+    iaas.deployment/type: shared
+    {{- end }}
+spec:
+  {{- if eq .Values.deploymentType "shared" }}
+  replicas: {{ .Values.rafikiAuth.replicaCount | default 1 }}
+  {{- else }}
+  replicas: {{ .Values.rafikiAuth.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "iaas-rafiki.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: {{ .Values.rafikiAuth.name }}
+  template:
+    metadata:
+      labels:
+        {{- include "iaas-rafiki.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: {{ .Values.rafikiAuth.name }}
+        {{- if .Values.planTier }}
+        iaas.deployment/tier: {{ .Values.planTier }}
+        {{- end }}
+        {{- if eq .Values.deploymentType "shared" }}
+        iaas.deployment/type: shared
+        {{- end }}
+      annotations: {}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Values.rafikiAuth.name }}
+          image: "{{ .Values.rafikiAuth.image.repository }}:{{ .Values.rafikiAuth.image.tag }}"
+          imagePullPolicy: {{ .Values.rafikiAuth.image.pullPolicy }}
+          ports:
+            - name: http-main
+              containerPort: {{ .Values.rafikiAuth.ports.main }}
+              protocol: TCP
+            - name: http-grant
+              containerPort: {{ .Values.rafikiAuth.ports.grant }}
+              protocol: TCP
+            - name: http-admin
+              containerPort: {{ .Values.rafikiAuth.ports.admin }}
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: {{ .Values.rafikiAuth.secrets.name }}
+          resources:
+            {{- toYaml .Values.rafikiAuth.resources | nindent 12 }}
+      restartPolicy: Always
+{{- end }}

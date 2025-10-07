@@ -1,0 +1,174 @@
+# Node Exporter DaemonSet for Node-Level Metrics Collection
+# Provides essential node metrics for Kubernetes monitoring and resource tracking
+
+{{- if .Values.monitoring.enabled }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: node-exporter
+  namespace: {{ include "iaas-rafiki.namespace" . }}
+  labels:
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/instance: {{ .Release.Name }}-node-exporter
+    app.kubernetes.io/component: metrics
+    iaas.deployment/component: monitoring
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: node-exporter
+  labels:
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/instance: {{ .Release.Name }}-node-exporter
+    app.kubernetes.io/component: metrics
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/metrics", "nodes/stats", "nodes/proxy"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: node-exporter
+  labels:
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/instance: {{ .Release.Name }}-node-exporter
+    app.kubernetes.io/component: metrics
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: node-exporter
+subjects:
+  - kind: ServiceAccount
+    name: node-exporter
+    namespace: {{ include "iaas-rafiki.namespace" . }}
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter
+  namespace: {{ include "iaas-rafiki.namespace" . }}
+  labels:
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/instance: {{ .Release.Name }}-node-exporter
+    app.kubernetes.io/component: metrics
+    iaas.deployment/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: node-exporter
+      app.kubernetes.io/instance: {{ .Release.Name }}-node-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: node-exporter
+        app.kubernetes.io/instance: {{ .Release.Name }}-node-exporter
+        app.kubernetes.io/component: metrics
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: node-exporter
+      hostNetwork: true
+      hostPID: true
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+        - operator: Exists
+          effect: NoExecute
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+      containers:
+        - name: node-exporter
+          image: "prom/node-exporter:v1.7.0"
+          imagePullPolicy: "IfNotPresent"
+          args:
+            - --path.procfs=/host/proc
+            - --path.sysfs=/host/sys
+            - --path.rootfs=/host/root
+            - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+            - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$$
+            - --collector.netclass.ignored-devices=^(veth.*|cali.*|docker.*|br-.*|lo)$$
+            - --web.listen-address=:9100
+            - --web.telemetry-path=/metrics
+          ports:
+            - containerPort: 9100
+              name: metrics
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: 9100
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: 9100
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+          volumeMounts:
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: sys
+              mountPath: /host/sys
+              readOnly: true
+            - name: root
+              mountPath: /host/root
+              mountPropagation: HostToContainer
+              readOnly: true
+      volumes:
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: root
+          hostPath:
+            path: /
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-exporter
+  namespace: {{ include "iaas-rafiki.namespace" . }}
+  labels:
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/instance: {{ .Release.Name }}-node-exporter
+    app.kubernetes.io/component: metrics
+    iaas.deployment/component: monitoring
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 9100
+      targetPort: 9100
+      protocol: TCP
+      name: metrics
+  selector:
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/instance: {{ .Release.Name }}-node-exporter
+{{- end }}

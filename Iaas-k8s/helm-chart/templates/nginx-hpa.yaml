@@ -1,0 +1,24 @@
+{{- if and .Values.nginx.enabled .Values.nginx.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.nginx.name "context" .) }}
+  namespace: {{ include "iaas-rafiki.namespace" . }}
+  labels:
+    {{- include "iaas-rafiki.enhancedLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.nginx.name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.nginx.name "context" .) }}
+  minReplicas: {{ .Values.nginx.hpa.minReplicas }}
+  maxReplicas: {{ .Values.nginx.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.nginx.hpa.targetCPUUtilizationPercentage }}
+{{- end }}

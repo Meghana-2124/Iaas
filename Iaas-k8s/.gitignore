@@ -1,0 +1,9 @@
+node_modules
+yarn.lock
+
+# Ignore kubernetes secret files
+**/secrets.dev.yaml
+**/secrets.prod.yaml
+
+dist
+scripts

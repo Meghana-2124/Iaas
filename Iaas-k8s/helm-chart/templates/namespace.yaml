@@ -1,0 +1,20 @@
+{{- if and .Values.namespace (ne .Values.namespace "default") }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.namespace }}
+  labels:
+    {{- include "iaas-rafiki.labels" . | nindent 4 }}
+    app.kubernetes.io/component: namespace
+    iaas.deployment/type: {{ .Values.deploymentType | default "dedicated" }}
+    iaas.deployment/company: {{ .Values.companyName }}
+    {{- if .Values.planTier }}
+    iaas.deployment/tier: "{{ .Values.planTier }}"
+    {{- end }}
+    iaas.cost/budget-enabled: "true"
+    iaas.cost/monitoring: "enabled"
+  {{- with .Values.namespaceAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

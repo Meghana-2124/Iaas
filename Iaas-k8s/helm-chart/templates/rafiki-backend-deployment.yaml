@@ -1,0 +1,73 @@
+{{- if .Values.rafikiBackend.enabled }}
+apiVersion: {{ include "deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  name: {{ include "iaas-rafiki.componentFullname" (dict "componentName" .Values.rafikiBackend.name "context" .) }}
+  namespace: {{ include "iaas-rafiki.namespace" . }}
+  labels:
+    {{- include "iaas-rafiki.enhancedLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.rafikiBackend.name }}
+    {{- if .Values.planTier }}
+    iaas.deployment/tier: {{ .Values.planTier }}
+    {{- end }}
+    {{- if eq .Values.deploymentType "shared" }}
+    iaas.deployment/type: shared
+    {{- else }}
+    iaas.deployment/type: dedicated
+    {{- end }}
+spec:
+  {{- if eq .Values.deploymentType "shared" }}
+  replicas: {{ .Values.rafikiBackend.replicaCount | default 1 }}
+  {{- else }}
+  replicas: {{ .Values.rafikiBackend.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "iaas-rafiki.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: {{ .Values.rafikiBackend.name }}
+  template:
+    metadata:
+      labels:
+        {{- include "iaas-rafiki.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: {{ .Values.rafikiBackend.name }}
+        {{- if .Values.planTier }}
+        iaas.deployment/tier: {{ .Values.planTier }}
+        {{- end }}
+        {{- if eq .Values.deploymentType "shared" }}
+        iaas.deployment/type: shared
+        {{- else }}
+        iaas.deployment/type: dedicated
+        {{- end }}
+      annotations: {}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Values.rafikiBackend.name }}
+          image: "{{ .Values.rafikiBackend.image.repository }}:{{ .Values.rafikiBackend.image.tag }}"
+          imagePullPolicy: {{ .Values.rafikiBackend.image.pullPolicy }}
+          ports:
+            - name: http-openpay
+              containerPort: {{ .Values.rafikiBackend.ports.openPayments }}
+              protocol: TCP
+            - name: http-graphql
+              containerPort: {{ .Values.rafikiBackend.ports.graphql }}
+              protocol: TCP
+            - name: http-connector
+              containerPort: {{ .Values.rafikiBackend.ports.connector }}
+              protocol: TCP
+            - name: http-admin
+              containerPort: {{ .Values.rafikiBackend.ports.admin }}
+              protocol: TCP
+            - name: http-autopeer
+              containerPort: {{ .Values.rafikiBackend.ports.autopeering }}
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: {{ .Values.rafikiBackend.secrets.name }}
+          resources:
+            {{- toYaml .Values.rafikiBackend.resources | nindent 12 }}
+      restartPolicy: Always
+{{- end }}

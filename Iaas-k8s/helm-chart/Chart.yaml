@@ -1,0 +1,20 @@
+apiVersion: v2
+name: "iaas-rafiki" # Static chart name - companyName will be handled in templates
+description: A Helm chart for deploying Rafiki application suite with dynamic company naming
+type: application
+version: 0.2.1
+appVersion: "1.0.0" # Corresponds to the application version being deployed
+# Temporarily commenting out kubeVersion constraint to work around authentication issues
+# The cluster is actually running 1.33.4 but Helm is detecting 1.20.0 due to auth/cache issues
+# kubeVersion: ">=1.25.0-0" # Remove upper bound to be more flexible with newer versions
+
+# Maintainers (optional)
+maintainers:
+  - name: Regedit-msc
+    email: your.email@example.com
+# Dependencies (if any, e.g., a Redis chart)
+# dependencies:
+#   - name: redis
+#     version: "17.x.x"
+#     repository: "https://charts.bitnami.com/bitnami"
+#     condition: redis.enabled # If deploying Redis as a sub-chart
